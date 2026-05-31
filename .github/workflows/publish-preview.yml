@@ -70,7 +70,7 @@ jobs:
           fi
 
           for package in "${packages[@]}"; do
-            dotnet nuget push "$package" --api-key "$NUGET_API_KEY" --source "$NUGET_SOURCE" --skip-duplicate
+            dotnet nuget push "$package" --api-key "$NUGET_API_KEY" --source "$NUGET_SOURCE" --skip-duplicate --no-symbols
           done
 
           for symbol_package in "${symbols[@]}"; do
@@ -94,5 +94,5 @@ jobs:
           fi
 
           for package in "${packages[@]}"; do
-            dotnet nuget push "$package" --api-key "${{ secrets.GITHUB_TOKEN }}" --source "github" --skip-duplicate
+            dotnet nuget push "$package" --api-key "${{ secrets.GITHUB_TOKEN }}" --source "github" --skip-duplicate --no-symbols
           done
