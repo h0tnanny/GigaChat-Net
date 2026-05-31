@@ -117,17 +117,15 @@ internal static class TestData
 {
     public static string Fixture(params string[] parts)
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "GigaChat.Net.slnx")))
-            directory = directory.Parent;
-
-        if (directory is null)
-            throw new DirectoryNotFoundException("Could not locate repository root.");
-
-        return File.ReadAllText(Path.Combine([directory.FullName, "source", "gigachat-main", "tests", "data", .. parts]));
+        return File.ReadAllText(ResolveFixturePath(parts));
     }
 
     public static byte[] FixtureBytes(params string[] parts)
+    {
+        return File.ReadAllBytes(ResolveFixturePath(parts));
+    }
+
+    private static string ResolveFixturePath(string[] parts)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "GigaChat.Net.slnx")))
@@ -136,7 +134,11 @@ internal static class TestData
         if (directory is null)
             throw new DirectoryNotFoundException("Could not locate repository root.");
 
-        return File.ReadAllBytes(Path.Combine([directory.FullName, "source", "gigachat-main", "tests", "data", .. parts]));
+        var fixturePath = Path.Combine([directory.FullName, "tests", "GigaChat.Net.Tests", "Fixtures", .. parts]);
+        if (File.Exists(fixturePath))
+            return fixturePath;
+
+        throw new FileNotFoundException($"Could not locate test fixture '{string.Join("/", parts)}'.", fixturePath);
     }
 }
 
