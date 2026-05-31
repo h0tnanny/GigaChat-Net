@@ -26,6 +26,7 @@ var kernel = Kernel.CreateBuilder()
         modelId: settings.Model,
         endpoint: settings.BaseUrl)
     .Build();
+kernel.Plugins.AddFromObject(new ReleasePlugin(settings.Model ?? "GigaChat"), "release");
 
 var chatService = kernel.Services.GetRequiredService<IChatCompletionService>();
 var requestHeaders = CreateRequestHeaders();
@@ -39,7 +40,11 @@ await RunSectionAsync(
     async () => await RunStreamingAsync(chatService, prompt, requestHeaders, cts.Token));
 
 await RunSectionAsync(
-    "Semantic Kernel agent",
+    "Semantic Kernel plugins/tools",
+    async () => await RunPluginToolsAsync(chatService, kernel, prompt, requestHeaders, cts.Token));
+
+await RunSectionAsync(
+    "Semantic Kernel agent with tools",
     async () => await RunAgentAsync(kernel, prompt, requestHeaders, cts.Token));
 
 await RunSectionAsync(
@@ -59,6 +64,45 @@ static Settings CreateSettings()
         MaxRetries = GetInt("GIGACHAT_MAX_RETRIES", 3),
         RetryBackoffFactor = GetDouble("GIGACHAT_RETRY_BACKOFF_FACTOR", 0.5)
     };
+}
+
+static async Task RunPluginToolsAsync(
+    IChatCompletionService chatService,
+    Kernel kernel,
+    string prompt,
+    GigaChatRequestHeaders? requestHeaders,
+    CancellationToken cancellationToken)
+{
+    ChatHistory history =
+    [
+        new ChatMessageContent(
+            AuthorRole.System,
+            """
+            Ты release coordinator. Используй доступные release tools перед финальным ответом.
+            Сначала проверь версию пакета и статус проверок, затем дай короткий план действий.
+            """),
+        new ChatMessageContent(AuthorRole.User, $"Подготовь релизный статус для задачи: {prompt}")
+    ];
+
+    var messages = await chatService.GetChatMessageContentsAsync(
+        history,
+        new GigaChatPromptExecutionSettings
+        {
+            Temperature = 0.1,
+            MaxTokens = 800,
+            Headers = requestHeaders,
+            FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+            MaxToolCalls = 4
+        },
+        kernel,
+        cancellationToken);
+
+    foreach (var message in messages)
+    {
+        Console.WriteLine(message.Content);
+        if (message.Metadata?.TryGetValue("function_calls", out var calls) == true)
+            Console.WriteLine($"Tool calls: {JsonSerializer.Serialize(calls, CreateStructuredJsonOptions())}");
+    }
 }
 
 static void EnsureAuthConfigured(Settings settings)
@@ -197,7 +241,9 @@ static async Task RunAgentAsync(
         {
             Temperature = 0.2,
             MaxTokens = 800,
-            Headers = requestHeaders
+            Headers = requestHeaders,
+            FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+            MaxToolCalls = 4
         })
     };
 
@@ -356,4 +402,46 @@ internal sealed record ReleasePlan
     /// </summary>
     [Description("Concrete release tasks that should be completed.")]
     public required IReadOnlyList<string> Tasks { get; init; }
+}
+
+/// <summary>
+/// Local Semantic Kernel plugin that exposes release facts to GigaChat through function calling.
+/// </summary>
+internal sealed class ReleasePlugin(string model)
+{
+    /// <summary>
+    /// Returns the package version that the example should mention in release answers.
+    /// </summary>
+    [KernelFunction("get_package_version")]
+    [Description("Returns the current package version for the Semantic Kernel adapter.")]
+    public string GetPackageVersion(
+        [Description("NuGet package id to inspect.")] string packageId = "GigaChat.Net.SemanticKernel")
+    {
+        return packageId.Equals("GigaChat.Net.SemanticKernel", StringComparison.OrdinalIgnoreCase)
+            ? "0.1.0-preview.semantic-kernel"
+            : "unknown";
+    }
+
+    /// <summary>
+    /// Returns a synthetic local CI status for the example release flow.
+    /// </summary>
+    [KernelFunction("get_ci_status")]
+    [Description("Returns the latest local CI status for a release branch.")]
+    public string GetCiStatus(
+        [Description("Branch name to inspect.")] string branch = "semantic-kernel")
+    {
+        return JsonSerializer.Serialize(
+            new
+            {
+                branch,
+                model,
+                build = "expected: dotnet build",
+                tests = "expected: dotnet test",
+                package = "expected: dotnet pack"
+            },
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+            });
+    }
 }

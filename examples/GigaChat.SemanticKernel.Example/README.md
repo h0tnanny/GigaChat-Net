@@ -4,7 +4,8 @@ This example shows several ways to use `GigaChat.Net.SemanticKernel`:
 
 - `IChatCompletionService` with `ChatHistory` and `GigaChatPromptExecutionSettings`;
 - streaming through Semantic Kernel;
-- `ChatCompletionAgent`;
+- Semantic Kernel plugins/tools through `FunctionChoiceBehavior.Auto()`;
+- `ChatCompletionAgent` with the same GigaChat-backed tools;
 - structured output with Semantic Kernel `response_format`;
 - direct `GigaChat.Net` SDK calls for models, token count, and embeddings.
 
