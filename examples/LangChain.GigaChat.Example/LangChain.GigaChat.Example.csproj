@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\GigaChat.Net\GigaChat.Net.csproj" />
     <ProjectReference Include="..\..\src\LangChain.Providers.GigaChat\LangChain.Providers.GigaChat.csproj" />
   </ItemGroup>
 
