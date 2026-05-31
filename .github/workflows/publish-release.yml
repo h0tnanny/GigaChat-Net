@@ -86,6 +86,7 @@ jobs:
         run: |
           dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=${{ steps.version.outputs.package_version }}
           dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=${{ steps.version.outputs.package_version }}
+          dotnet pack src/LangChain.Providers.GigaChat/LangChain.Providers.GigaChat.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=${{ steps.version.outputs.package_version }}
 
       - name: Publish packages to NuGet
         env:

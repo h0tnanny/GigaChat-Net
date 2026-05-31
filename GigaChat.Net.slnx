@@ -6,8 +6,10 @@
   <Folder Name="/src/">
     <Project Path="src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj" />
     <Project Path="src/GigaChat.Net/GigaChat.Net.csproj" />
+    <Project Path="src/LangChain.Providers.GigaChat/LangChain.Providers.GigaChat.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/GigaChat.Net.Tests/GigaChat.Net.Tests.csproj" />
+    <Project Path="tests/LangChain.Providers.GigaChat.Tests/LangChain.Providers.GigaChat.Tests.csproj" />
   </Folder>
 </Solution>

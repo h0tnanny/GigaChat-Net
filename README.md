@@ -39,18 +39,25 @@ dotnet add package GigaChat.Net
 dotnet add package GigaChat.Net.AspNetCore
 ```
 
+Для tryAGI LangChain интеграций:
+
+```bash
+dotnet add package LangChain.Providers.GigaChat
+```
+
 **Требования:** .NET 10.0+
 
 ## Пакеты и репозиторий
 
-Проект ведется как один monorepo с двумя NuGet-пакетами:
+Проект ведется как один monorepo с тремя NuGet-пакетами:
 
 | Пакет | Когда нужен |
 |-------|-------------|
 | `GigaChat.Net` | Базовый SDK: клиент, модели, auth, streaming, embeddings, files, retry. |
 | `GigaChat.Net.AspNetCore` | DI-регистрация, middleware и request context для ASP.NET Core. |
+| `LangChain.Providers.GigaChat` | Адаптер для tryAGI LangChain: chat, streaming, embeddings, tools, structured output, files. |
 
-Такой формат позволяет выпускать совместимые версии SDK и ASP.NET Core расширения из одного CI.
+Такой формат позволяет выпускать совместимые версии SDK, ASP.NET Core расширения и LangChain provider из одного CI.
 Подробная схема GitHub Project, preview/release публикации и NuGet secrets описана в
 [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
@@ -281,6 +288,31 @@ using var _ = GigaChatContext.UseRequestHeaders(new GigaChatRequestHeaders
 
 var files = await client.GetFilesAsync(cancellationToken);
 ```
+
+### LangChain Provider
+
+`LangChain.Providers.GigaChat` использует `GigaChat.Net` как transport SDK и предоставляет
+модели для tryAGI LangChain provider abstractions:
+
+```csharp
+using LangChain.Providers;
+using LangChain.Providers.GigaChat;
+
+using var provider = new GigaChatProvider();
+var model = provider.CreateChatModel(settings: new GigaChatChatSettings
+{
+    Model = "GigaChat-Pro",
+    Temperature = 0.2
+});
+
+await foreach (var response in model.GenerateAsync(ChatRequest.ToChatRequest("Привет!")))
+{
+    Console.WriteLine(response.LastMessageContent);
+}
+```
+
+Provider поддерживает streaming, embeddings, token counting, GigaChat tools, JSON schema
+structured output и file helpers.
 
 ### Embeddings
 
@@ -685,7 +717,7 @@ foreach (var entry in balance.BalanceEntries)
 
 ## Разработка и публикация
 
-- Pull requests проверяются workflow `CI`: restore, build, test и pack обоих NuGet-пакетов.
+- Pull requests проверяются workflow `CI`: restore, build, test и pack всех NuGet-пакетов.
 - Разработка ведется через `develop`; feature и bugfix ветки создаются от `develop` в формате `feature/GN-123-short-description`.
 - Коммиты и PR title ведутся в формате `[GN-123] feat: short description`.
 - Push в `develop` публикует preview версии вида `0.1.0-preview.<run>.<attempt>` в NuGet.org и GitHub Packages и создает tag `preview/v...`.

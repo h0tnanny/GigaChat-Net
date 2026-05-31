@@ -44,6 +44,7 @@ jobs:
         run: |
           dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.0.0-ci.${{ github.run_number }}.${{ github.run_attempt }}
           dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.0.0-ci.${{ github.run_number }}.${{ github.run_attempt }}
+          dotnet pack src/LangChain.Providers.GigaChat/LangChain.Providers.GigaChat.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.0.0-ci.${{ github.run_number }}.${{ github.run_attempt }}
 
       - name: Upload test results
         if: always()

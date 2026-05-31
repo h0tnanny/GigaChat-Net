@@ -8,17 +8,18 @@ NuGet.org остается основным публичным registry для �
 
 ## Один репозиторий или два
 
-Для текущего состояния правильнее оставить один репозиторий `h0tnanny/GigaChat-Net` и выпускать из него два NuGet-пакета:
+Для текущего состояния правильнее оставить один репозиторий `h0tnanny/GigaChat-Net` и выпускать из него три NuGet-пакета:
 
 | Пакет | Проект | Назначение |
 | --- | --- | --- |
 | `GigaChat.Net` | `src/GigaChat.Net` | Базовый SDK: клиент, модели, auth, streaming, embeddings, files, retry. |
 | `GigaChat.Net.AspNetCore` | `src/GigaChat.Net.AspNetCore` | DI, middleware, request context и ASP.NET Core интеграция поверх базового SDK. |
+| `LangChain.Providers.GigaChat` | `src/LangChain.Providers.GigaChat` | tryAGI LangChain provider поверх `GigaChat.Net`: chat, streaming, embeddings, tools, structured output, files. |
 
 Причины оставить монорепозиторий:
 
-- ASP.NET Core пакет зависит от базового SDK и должен выпускаться совместимой версией.
-- Один CI прогон проверяет оба проекта и интеграционные сценарии.
+- ASP.NET Core и LangChain пакеты зависят от базового SDK и должны выпускаться совместимой версией.
+- Один CI прогон проверяет все проекты и интеграционные сценарии.
 - Issues, bug reports и roadmap проще вести в одном Project.
 - Общая документация не расходится между пакетами.
 
@@ -29,6 +30,7 @@ README нужны разные по назначению:
 - `README.md` в корне - главная документация репозитория и точка входа для GitHub.
 - `docs/nuget/GigaChat.Net.md` - короткая страница NuGet для базового пакета.
 - `docs/nuget/GigaChat.Net.AspNetCore.md` - короткая страница NuGet для ASP.NET Core пакета.
+- `docs/nuget/LangChain.Providers.GigaChat.md` - короткая страница NuGet для LangChain provider.
 
 NuGet README должен быть короче root README: пользователь на NuGet странице должен быстро понять, какой пакет поставить и где лежит полная документация.
 
@@ -67,7 +69,7 @@ NUGET_API_KEY
 
 1. Откройте nuget.org.
 2. Создайте API key со scope `Push`.
-3. Ограничьте ключ пакетами `GigaChat.Net*`, если пакеты уже зарезервированы.
+3. Ограничьте ключ пакетами `GigaChat.Net*` и `LangChain.Providers.GigaChat`, если пакеты уже зарезервированы.
 4. В GitHub откройте `Settings -> Secrets and variables -> Actions -> New repository secret`.
 5. Назовите secret `NUGET_API_KEY`.
 6. Вставьте значение API key.
@@ -105,6 +107,7 @@ dotnet build GigaChat.Net.slnx --configuration Release --no-restore
 dotnet test GigaChat.Net.slnx --configuration Release --no-build
 dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build
 dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build
+dotnet pack src/LangChain.Providers.GigaChat/LangChain.Providers.GigaChat.csproj --configuration Release --no-build
 ```
 
 В CI используется временная версия пакета:
@@ -131,7 +134,7 @@ Preview workflow:
 2. Восстанавливает зависимости.
 3. Собирает решение в `Release`.
 4. Запускает тесты.
-5. Упаковывает оба проекта.
+5. Упаковывает все NuGet-проекты.
 6. Публикует `.nupkg` и `.snupkg` в nuget.org.
 7. Публикует `.nupkg` в GitHub Packages.
 8. Создает annotated tag вида `preview/v0.1.0-preview.<run>.<attempt>`.
@@ -143,6 +146,7 @@ GitHub Packages не является зеркалом NuGet.org. Даже ес�
 ```bash
 dotnet add package GigaChat.Net --version 0.1.0-preview.<run>.<attempt>
 dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-preview.<run>.<attempt>
+dotnet add package LangChain.Providers.GigaChat --version 0.1.0-preview.<run>.<attempt>
 ```
 
 Preview пакеты подходят для проверки интеграции до стабильного релиза. Их не стоит считать контрактом совместимости.
@@ -158,6 +162,7 @@ dotnet nuget add source "https://nuget.pkg.github.com/h0tnanny/index.json" \
 
 dotnet add package GigaChat.Net --version 0.1.0-preview.<run>.<attempt> --source github
 dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-preview.<run>.<attempt> --source github
+dotnet add package LangChain.Providers.GigaChat --version 0.1.0-preview.<run>.<attempt> --source github
 ```
 
 Для обычных пользователей предпочтительнее установка из NuGet.org без дополнительного source.
@@ -220,6 +225,7 @@ dotnet build GigaChat.Net.slnx --configuration Release --no-restore
 dotnet test GigaChat.Net.slnx --configuration Release --no-build
 dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.1.0-local
 dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.1.0-local
+dotnet pack src/LangChain.Providers.GigaChat/LangChain.Providers.GigaChat.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.1.0-local
 ```
 
 Локальная установка из папки:
@@ -228,6 +234,7 @@ dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configu
 dotnet nuget add source ./artifacts/packages --name GigaChatLocal
 dotnet add package GigaChat.Net --version 0.1.0-local --source ./artifacts/packages
 dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-local --source ./artifacts/packages
+dotnet add package LangChain.Providers.GigaChat --version 0.1.0-local --source ./artifacts/packages
 ```
 
 ## Версионирование
@@ -245,7 +252,7 @@ dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-local --source ./arti
 - `MINOR` - новые возможности без breaking changes.
 - `PATCH` - bug fixes.
 
-Если `GigaChat.Net.AspNetCore` зависит от `GigaChat.Net`, выпускайте оба пакета одной версией. Это снижает риск, что пользователь установит несовместимые версии.
+Если `GigaChat.Net.AspNetCore` или `LangChain.Providers.GigaChat` зависят от `GigaChat.Net`, выпускайте пакеты одной версией. Это снижает риск, что пользователь установит несовместимые версии.
 
 ## Labels
 
