@@ -62,7 +62,7 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
         var completion = await _client.ChatAsync(chat, settings.Headers, cancellationToken);
 
         return completion.Choices
-            .Select(choice => CreateChatMessageContent(choice, completion))
+            .Select(choice => CreateChatMessageContent(choice, completion, functionMap: functionMap))
             .ToArray();
     }
 
@@ -157,7 +157,7 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
             {
                 messages.Add(message);
                 return completion.Choices
-                    .Select(finalChoice => CreateChatMessageContent(finalChoice, completion, functionCalls))
+                    .Select(finalChoice => CreateChatMessageContent(finalChoice, completion, functionCalls, functionMap))
                     .ToArray();
             }
 
@@ -207,15 +207,21 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
         FunctionCall functionCall,
         CancellationToken cancellationToken)
     {
-        var arguments = new KernelArguments();
-        if (functionCall.Arguments is not null)
-        {
-            foreach (var argument in functionCall.Arguments)
-                arguments[argument.Key] = UnwrapJsonElement(argument.Value);
-        }
-
+        var arguments = ToKernelArguments(functionCall.Arguments);
         var result = await function.InvokeAsync(kernel, arguments, cancellationToken);
         return FormatFunctionResult(result.GetValue<object?>());
+    }
+
+    private static KernelArguments ToKernelArguments(Dictionary<string, object?>? arguments)
+    {
+        var kernelArguments = new KernelArguments();
+        if (arguments is null)
+            return kernelArguments;
+
+        foreach (var argument in arguments)
+            kernelArguments[argument.Key] = UnwrapJsonElement(argument.Value);
+
+        return kernelArguments;
     }
 
     private static string FormatFunctionResult(object? value)
@@ -242,14 +248,76 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
 
     private static Messages ToGigaChatMessage(ChatMessageContent message)
     {
+        ValidateSupportedItems(message);
+
+        var functionCall = message.Items.OfType<FunctionCallContent>().FirstOrDefault();
+        if (functionCall is not null)
+        {
+            if (string.IsNullOrWhiteSpace(functionCall.FunctionName))
+                throw new NotSupportedException("Semantic Kernel function call content must include a function name.");
+
+            return Messages.Assistant(
+                GetTextContent(message),
+                new FunctionCall
+                {
+                    Name = GigaChatKernelFunctionMapper.ToGigaChatFunctionName(
+                        functionCall.PluginName,
+                        functionCall.FunctionName),
+                    Arguments = ToGigaChatArguments(functionCall.Arguments)
+                });
+        }
+
+        var functionResult = message.Items.OfType<FunctionResultContent>().FirstOrDefault();
+        if (functionResult is not null)
+        {
+            if (string.IsNullOrWhiteSpace(functionResult.FunctionName))
+                throw new NotSupportedException("Semantic Kernel function result content must include a function name.");
+
+            return Messages.Function(
+                GigaChatKernelFunctionMapper.ToGigaChatFunctionName(
+                    functionResult.PluginName,
+                    functionResult.FunctionName),
+                FormatFunctionResult(functionResult.Result));
+        }
+
         var role = ToGigaChatRole(message.Role);
         return role == MessagesRole.Function
-            ? Messages.Function(message.AuthorName ?? "tool", message.Content ?? string.Empty)
+            ? Messages.Function(message.AuthorName ?? "tool", GetTextContent(message))
             : new Messages
             {
                 Role = role,
-                Content = message.Content ?? string.Empty
+                Content = GetTextContent(message)
             };
+    }
+
+    private static void ValidateSupportedItems(ChatMessageContent message)
+    {
+        foreach (var item in message.Items)
+        {
+            if (item is TextContent or FunctionCallContent or FunctionResultContent)
+                continue;
+
+            throw new NotSupportedException(
+                $"GigaChat Semantic Kernel connector supports text and function content items only. Unsupported item: {item.GetType().Name}.");
+        }
+    }
+
+    private static string GetTextContent(ChatMessageContent message)
+    {
+        var text = string.Concat(message.Items.OfType<TextContent>().Select(item => item.Text));
+        return string.IsNullOrEmpty(text) ? message.Content ?? string.Empty : text;
+    }
+
+    private static Dictionary<string, object?>? ToGigaChatArguments(KernelArguments? arguments)
+    {
+        if (arguments is null || arguments.Count == 0)
+            return null;
+
+        var result = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (var argument in arguments)
+            result[argument.Key] = argument.Value;
+
+        return result;
     }
 
     private static MessagesRole ToGigaChatRole(AuthorRole role)
@@ -278,10 +346,11 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
     private static ChatMessageContent CreateChatMessageContent(
         Choices choice,
         ChatCompletion completion,
-        IReadOnlyList<ExecutedFunctionCall>? functionCalls = null)
+        IReadOnlyList<ExecutedFunctionCall>? functionCalls = null,
+        GigaChatKernelFunctionMap? functionMap = null)
     {
         var metadata = CreateMessageMetadata(choice, completion, functionCalls);
-        return new ChatMessageContent(
+        var content = new ChatMessageContent(
             ToAuthorRole(choice.Message.Role),
             choice.Message.Content,
             modelId: completion.Model,
@@ -290,6 +359,41 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
         {
             AuthorName = choice.Message.Name
         };
+
+        if (choice.Message.FunctionCall is not null)
+            content.Items.Add(ToFunctionCallContent(choice.Message.FunctionCall, functionMap));
+
+        return content;
+    }
+
+    private static FunctionCallContent ToFunctionCallContent(
+        FunctionCall functionCall,
+        GigaChatKernelFunctionMap? functionMap)
+    {
+        if (functionMap is not null
+            && functionMap.FunctionsByGigaChatName.TryGetValue(functionCall.Name, out var kernelFunction))
+        {
+            return new FunctionCallContent(
+                kernelFunction.Metadata.Name,
+                kernelFunction.Metadata.PluginName,
+                functionCall.Name,
+                ToKernelArguments(functionCall.Arguments));
+        }
+
+        var (pluginName, functionName) = SplitGigaChatFunctionName(functionCall.Name);
+        return new FunctionCallContent(
+            functionName,
+            pluginName,
+            functionCall.Name,
+            ToKernelArguments(functionCall.Arguments));
+    }
+
+    private static (string? PluginName, string FunctionName) SplitGigaChatFunctionName(string name)
+    {
+        var separatorIndex = name.LastIndexOf('_');
+        return separatorIndex <= 0 || separatorIndex == name.Length - 1
+            ? (null, name)
+            : (name[..separatorIndex], name[(separatorIndex + 1)..]);
     }
 
     private static IReadOnlyDictionary<string, object?> CreateMessageMetadata(

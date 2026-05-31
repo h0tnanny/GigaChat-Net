@@ -260,6 +260,112 @@ public class SemanticKernelTests
     }
 
     [Fact]
+    public async Task ChatCompletionServiceMapsSemanticKernelFunctionContentItemsToGigaChatMessages()
+    {
+        var handler = new RecordingHandler();
+        handler.QueueJson(TestData.Fixture("chat_completion.json"));
+        using var client = new GigaChatClient(
+            new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl },
+            handler);
+        var service = new GigaChatChatCompletionService(client);
+        var functionCall = new FunctionCallContent(
+            "get_weather",
+            "weather",
+            "call-1",
+            new KernelArguments { ["city"] = "Tokyo" });
+        var assistant = new ChatMessageContent(AuthorRole.Assistant, string.Empty);
+        assistant.Items.Add(functionCall);
+        var functionResult = new FunctionResultContent(
+            "get_weather",
+            "weather",
+            "call-1",
+            "Tokyo is 22 C");
+        ChatHistory history =
+        [
+            new ChatMessageContent(AuthorRole.User, "weather in Tokyo"),
+            assistant,
+            functionResult.ToChatMessage()
+        ];
+
+        await service.GetChatMessageContentsAsync(history);
+
+        var request = Assert.Single(handler.Requests);
+        using var body = JsonDocument.Parse(request.Body!);
+        var messages = body.RootElement.GetProperty("messages");
+        Assert.Equal("assistant", messages[1].GetProperty("role").GetString());
+        Assert.Equal("weather_get_weather", messages[1].GetProperty("function_call").GetProperty("name").GetString());
+        Assert.Equal("Tokyo", messages[1].GetProperty("function_call").GetProperty("arguments").GetProperty("city").GetString());
+        Assert.Equal("function", messages[2].GetProperty("role").GetString());
+        Assert.Equal("weather_get_weather", messages[2].GetProperty("name").GetString());
+        Assert.Equal("Tokyo is 22 C", messages[2].GetProperty("content").GetString());
+    }
+
+    [Fact]
+    public async Task ChatCompletionServiceReturnsFunctionCallContentWhenAutoInvokeIsDisabled()
+    {
+        var handler = new RecordingHandler();
+        handler.QueueJson("""
+        {
+          "choices": [
+            {
+              "message": {
+                "role": "assistant",
+                "content": "",
+                "function_call": {
+                  "name": "weather_get_weather",
+                  "arguments": { "city": "Tokyo" }
+                }
+              },
+              "index": 0,
+              "finish_reason": "function_call"
+            }
+          ],
+          "created": 1,
+          "model": "GigaChat",
+          "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 },
+          "object": "chat.completion"
+        }
+        """);
+        using var client = new GigaChatClient(
+            new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl },
+            handler);
+        var service = new GigaChatChatCompletionService(client);
+        var kernel = Kernel.CreateBuilder().Build();
+        kernel.Plugins.AddFromObject(new WeatherPlugin(), "weather");
+
+        var response = await service.GetChatMessageContentsAsync(
+            [new ChatMessageContent(AuthorRole.User, "weather in Tokyo")],
+            new GigaChatPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false)
+            },
+            kernel);
+
+        var message = Assert.Single(response);
+        var call = Assert.Single(message.Items.OfType<FunctionCallContent>());
+        Assert.Equal("weather", call.PluginName);
+        Assert.Equal("get_weather", call.FunctionName);
+        Assert.Equal("Tokyo", call.Arguments!["city"]?.ToString());
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task ChatCompletionServiceRejectsUnsupportedSemanticKernelContentItems()
+    {
+        using var client = new GigaChatClient(
+            new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl },
+            new RecordingHandler());
+        var service = new GigaChatChatCompletionService(client);
+        var message = new ChatMessageContent(AuthorRole.User, string.Empty);
+        message.Items.Add(new ImageContent(new Uri("https://example.com/image.png")));
+
+        var exception = await Assert.ThrowsAsync<NotSupportedException>(
+            () => service.GetChatMessageContentsAsync([message]));
+
+        Assert.Contains("ImageContent", exception.Message);
+    }
+
+    [Fact]
     public async Task ChatCompletionServiceOmitsAuthorNameExceptForFunctionMessages()
     {
         var handler = new RecordingHandler();
