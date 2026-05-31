@@ -115,6 +115,9 @@ internal sealed class RecordingHandler : HttpMessageHandler
 
 internal static class TestData
 {
+    public const string BaseUrl = "https://example.test/api/v1";
+    public const string AuthUrl = "https://auth.example.test/oauth";
+
     public static string Fixture(params string[] parts)
     {
         return File.ReadAllText(ResolveFixturePath(parts));

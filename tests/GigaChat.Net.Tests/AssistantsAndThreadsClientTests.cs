@@ -14,7 +14,7 @@ public class AssistantsAndThreadsClientTests
         handler.QueueJson(TestData.Fixture("assistants", "post_assistant_modify.json"));
         handler.QueueJson(TestData.Fixture("assistants", "post_assistant_delete.json"));
         handler.QueueJson(TestData.Fixture("assistants", "post_assistant_files_delete.json"));
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         var assistants = client.GetAssistants("111");
         var created = client.CreateAssistant(new CreateAssistantRequest
@@ -63,7 +63,7 @@ public class AssistantsAndThreadsClientTests
         handler.QueueJson(TestData.Fixture("assistants", "post_assistant_modify.json"));
         handler.QueueJson(TestData.Fixture("assistants", "post_assistant_delete.json"));
         handler.QueueJson(TestData.Fixture("assistants", "post_assistant_files_delete.json"));
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         await client.GetAssistantsAsync();
         await client.CreateAssistantAsync(new CreateAssistantRequest { Model = "GigaChat-Pro", Name = "assistant" });
@@ -108,7 +108,7 @@ public class AssistantsAndThreadsClientTests
         handler.QueueJson(TestData.Fixture("threads", "post_thread_messages_rerun.json"));
         handler.QueueText(TestData.Fixture("threads", "post_thread_messages_run.stream"), "text/event-stream");
         handler.QueueText(TestData.Fixture("threads", "post_thread_messages_rerun.stream"), "text/event-stream");
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         var threads = client.GetThreads(["a", "b"], 2, 3);
         var listed = client.ListThreads();
@@ -200,7 +200,7 @@ public class AssistantsAndThreadsClientTests
         handler.QueueJson(TestData.Fixture("threads", "post_thread_messages_rerun.json"));
         handler.QueueText(TestData.Fixture("threads", "post_thread_messages_run.stream"), "text/event-stream");
         handler.QueueText(TestData.Fixture("threads", "post_thread_messages_rerun.stream"), "text/event-stream");
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         await client.GetThreadsAsync();
         await client.ListThreadsAsync();

@@ -28,7 +28,7 @@ public class StructuredOutputTests
           "object": "chat.completion"
         }
         """);
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         var result = client.ChatParse<MathAnswer>("Solve 40 + 2");
 
@@ -73,7 +73,7 @@ public class StructuredOutputTests
           "object": "chat.completion"
         }
         """);
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         var exception = await Assert.ThrowsAsync<LengthFinishReasonError>(
             () => client.ChatParseAsync<MathAnswer>("Solve 40 + 2"));
@@ -103,7 +103,7 @@ public class StructuredOutputTests
           "object": "chat.completion"
         }
         """);
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         var result = await client.ChatParseAsync<MathAnswer>("Solve 40 + 2");
 

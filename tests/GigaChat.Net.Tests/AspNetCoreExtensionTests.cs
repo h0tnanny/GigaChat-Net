@@ -72,7 +72,7 @@ public class AspNetCoreExtensionTests
         var services = new ServiceCollection();
         services.AddSingleton(httpClient);
         services.AddGigaChat(
-            _ => new Settings { AccessToken = "factory-token" },
+            _ => new Settings { AccessToken = "factory-token", BaseUrl = TestData.BaseUrl },
             provider =>
             {
                 factoryCalls++;
@@ -100,7 +100,7 @@ public class AspNetCoreExtensionTests
     public void AddGigaChatDoesNotOverrideExistingClientInterfaceRegistration()
     {
         var handler = new RecordingHandler();
-        using var replacement = new GigaChatClient(new Settings { AccessToken = "replacement-token" }, handler);
+        using var replacement = new GigaChatClient(new Settings { AccessToken = "replacement-token", BaseUrl = TestData.BaseUrl }, handler);
 
         var services = new ServiceCollection();
         services.AddSingleton<IGigaChatClient>(replacement);
@@ -124,7 +124,7 @@ public class AspNetCoreExtensionTests
         services.AddSingleton(httpClient);
         services.AddSingleton<IGigaChatAuthenticator>(authenticator);
         services.AddGigaChat(
-            _ => new Settings(),
+            _ => new Settings { BaseUrl = TestData.BaseUrl },
             provider => provider.GetRequiredService<HttpClient>());
 
         using var provider = services.BuildServiceProvider();

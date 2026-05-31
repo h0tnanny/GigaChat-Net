@@ -36,6 +36,7 @@ public class GigaChatClientCoreTests
             new Settings
             {
                 AccessToken = "token",
+                BaseUrl = TestData.BaseUrl,
                 Model = "GigaChat-Pro",
                 ProfanityCheck = true,
                 Flags = ["flag-a"]
@@ -63,7 +64,7 @@ public class GigaChatClientCoreTests
     {
         var handler = new RecordingHandler();
         handler.QueueJson(TestData.Fixture("chat_completion.json"));
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         client.Chat(new Chat
         {
@@ -93,7 +94,7 @@ public class GigaChatClientCoreTests
                 ["x-session-id"] = "sess-1",
                 ["x-client-id"] = "client-1"
             });
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         var completion = client.Chat("hello");
 
@@ -109,7 +110,7 @@ public class GigaChatClientCoreTests
         handler.QueueJson(TestData.Fixture("models.json"));
         using var httpClient = new HttpClient(handler);
 
-        using (var client = GigaChatClient.CreateWithHttpClient(new Settings { AccessToken = "token" }, httpClient))
+        using (var client = GigaChatClient.CreateWithHttpClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, httpClient))
         {
             client.GetModels();
         }
@@ -126,7 +127,7 @@ public class GigaChatClientCoreTests
         var handler = new RecordingHandler();
         handler.QueueJson(TestData.Fixture("models.json"));
         var authenticator = new StubAuthenticator { Token = "authenticator-token" };
-        using var client = new GigaChatClient(new Settings(), authenticator, httpMessageHandler: handler);
+        using var client = new GigaChatClient(new Settings { BaseUrl = TestData.BaseUrl }, authenticator, httpMessageHandler: handler);
 
         client.GetModels();
 
@@ -140,7 +141,7 @@ public class GigaChatClientCoreTests
     {
         var handler = new RecordingHandler();
         handler.QueueText(TestData.Fixture("chat_completion.stream"), "text/event-stream");
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         var chunks = client.Stream("hello").ToList();
 
@@ -162,7 +163,7 @@ public class GigaChatClientCoreTests
         handler.QueueJson(TestData.Fixture("balance.json"));
         handler.QueueJson(TestData.Fixture("ai_check.json"));
         handler.QueueJson(TestData.Fixture("convert_functions.json"));
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         client.TokensCount(["hello"]);
         client.Embeddings(["hello"]);
@@ -192,7 +193,7 @@ public class GigaChatClientCoreTests
         handler.QueueJson(TestData.Fixture("get_files.json"));
         handler.QueueJson(TestData.Fixture("post_files_delete.json"));
         handler.QueueBytes([1, 2, 3], "image/jpeg");
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes("file"));
         var uploaded = client.UploadFile(stream, "image.jpg");
@@ -235,7 +236,7 @@ public class GigaChatClientCoreTests
         handler.QueueJson(TestData.Fixture("balance.json"));
         handler.QueueJson(TestData.Fixture("ai_check.json"));
         handler.QueueJson(TestData.Fixture("convert_functions.json"));
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         await client.GetModelsAsync();
         await client.ChatAsync("hello");

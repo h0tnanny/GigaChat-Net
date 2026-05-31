@@ -96,7 +96,7 @@ public class ContextTests
         var authHandler = new RecordingHandler();
         handler.QueueJson(TestData.Fixture("chat_completion.json"));
         using var client = new GigaChatClient(
-            new Settings { Credentials = "credentials" },
+            new Settings { Credentials = "credentials", BaseUrl = TestData.BaseUrl, AuthUrl = TestData.AuthUrl },
             handler,
             authHandler);
 
@@ -148,7 +148,7 @@ public class ContextTests
         var authHandler = new RecordingHandler();
         handler.QueueJson(TestData.Fixture("chat_completion.json"));
         using var client = new GigaChatClient(
-            new Settings { Credentials = "credentials" },
+            new Settings { Credentials = "credentials", BaseUrl = TestData.BaseUrl, AuthUrl = TestData.AuthUrl },
             handler,
             authHandler);
 

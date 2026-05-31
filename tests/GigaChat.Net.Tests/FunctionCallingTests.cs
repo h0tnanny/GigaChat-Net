@@ -51,7 +51,7 @@ public class FunctionCallingTests
           "object": "chat.completion"
         }
         """);
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
         var tool = FunctionTool.Create<WeatherArguments>(
             "get_weather",
             "Get current weather by city",
@@ -256,7 +256,7 @@ public class FunctionCallingTests
           "object": "chat.completion"
         }
         """);
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
         var tool = FunctionTool.Create<WeatherArguments>(
             "get_weather",
             "Get current weather by city",
@@ -312,7 +312,7 @@ public class FunctionCallingTests
           "object": "chat.completion"
         }
         """);
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
         var tool = FunctionTool.Create<WeatherArguments>(
             "get_weather",
             "Get current weather by city",
@@ -331,7 +331,7 @@ public class FunctionCallingTests
             "get_weather",
             "Get current weather by city",
             _ => "ok");
-        using var duplicateClient = new GigaChatClient(new Settings { AccessToken = "token" }, new RecordingHandler());
+        using var duplicateClient = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, new RecordingHandler());
 
         Assert.Throws<ArgumentException>(() => duplicateClient.ChatWithTools("hello", []));
         Assert.Throws<ArgumentOutOfRangeException>(() => duplicateClient.ChatWithTools("hello", [tool], -1));
@@ -365,7 +365,7 @@ public class FunctionCallingTests
           "object": "chat.completion"
         }
         """);
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         var exception = await Assert.ThrowsAsync<GigaChatException>(
             () => client.ChatWithToolsAsync("call a tool", [tool], maxToolCalls: 0));

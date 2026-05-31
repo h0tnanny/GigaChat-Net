@@ -13,7 +13,7 @@ public class AuthenticationAndRetryTests
         authHandler.QueueJson("""{"access_token":"oauth-token","expires_at":4102444800000}""");
         apiHandler.QueueJson(TestData.Fixture("models.json"));
         using var client = new GigaChatClient(
-            new Settings { Credentials = "already-base64", Scope = "GIGACHAT_API_PERS" },
+            new Settings { Credentials = "already-base64", Scope = "GIGACHAT_API_PERS", BaseUrl = TestData.BaseUrl, AuthUrl = TestData.AuthUrl },
             apiHandler,
             authHandler);
 
@@ -32,7 +32,7 @@ public class AuthenticationAndRetryTests
         authHandler.QueueJson("""{"tok":"password-token","exp":4102444800000}""");
         apiHandler.QueueJson(TestData.Fixture("models.json"));
         using var client = new GigaChatClient(
-            new Settings { User = "user", Password = "pass" },
+            new Settings { User = "user", Password = "pass", BaseUrl = TestData.BaseUrl, AuthUrl = TestData.AuthUrl },
             apiHandler,
             authHandler);
 
@@ -49,7 +49,7 @@ public class AuthenticationAndRetryTests
         var apiHandler = new RecordingHandler();
         var authHandler = new RecordingHandler();
         apiHandler.QueueJson(TestData.Fixture("models.json"));
-        using var client = new GigaChatClient(new Settings { AccessToken = "manual" }, apiHandler, authHandler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "manual", BaseUrl = TestData.BaseUrl, AuthUrl = TestData.AuthUrl }, apiHandler, authHandler);
 
         client.GetModels();
 
@@ -60,7 +60,7 @@ public class AuthenticationAndRetryTests
     [Fact]
     public async Task GetTokenAsyncReturnsManualAccessToken()
     {
-        using var client = new GigaChatClient(new Settings { AccessToken = "manual" }, new RecordingHandler());
+        using var client = new GigaChatClient(new Settings { AccessToken = "manual", BaseUrl = TestData.BaseUrl }, new RecordingHandler());
 
         var token = await client.GetTokenAsync();
 
@@ -75,7 +75,7 @@ public class AuthenticationAndRetryTests
         var apiHandler = new RecordingHandler();
         var authHandler = new RecordingHandler();
         authHandler.QueueJson("""{"message":"bad credentials"}""", HttpStatusCode.BadRequest);
-        using var client = new GigaChatClient(new Settings { Credentials = "bad" }, apiHandler, authHandler);
+        using var client = new GigaChatClient(new Settings { Credentials = "bad", BaseUrl = TestData.BaseUrl, AuthUrl = TestData.AuthUrl }, apiHandler, authHandler);
 
         Assert.Throws<BadRequestError>(() => client.GetModels());
         Assert.Empty(apiHandler.Requests);
@@ -89,7 +89,7 @@ public class AuthenticationAndRetryTests
         handler.QueueJson("""{"error":"temporary"}""", HttpStatusCode.InternalServerError);
         handler.QueueJson(TestData.Fixture("models.json"));
         using var client = new GigaChatClient(
-            new Settings { AccessToken = "token", MaxRetries = 1 },
+            new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl, MaxRetries = 1 },
             handler,
             delay: delays.Add,
             delayAsync: (delay, _) =>
@@ -110,7 +110,7 @@ public class AuthenticationAndRetryTests
     {
         var handler = new RecordingHandler();
         handler.QueueJson("""{"message":"bad"}""", HttpStatusCode.BadRequest);
-        using var client = new GigaChatClient(new Settings { AccessToken = "token", MaxRetries = 3 }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl, MaxRetries = 3 }, handler);
 
         Assert.Throws<BadRequestError>(() => client.GetModels());
         Assert.Single(handler.Requests);
@@ -134,7 +134,7 @@ public class AuthenticationAndRetryTests
     {
         var handler = new RecordingHandler();
         handler.QueueJson("""{"message":"error"}""", statusCode);
-        using var client = new GigaChatClient(new Settings { AccessToken = "token" }, handler);
+        using var client = new GigaChatClient(new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
 
         var exception = Assert.ThrowsAny<ResponseError>(() => client.GetModels());
         Assert.IsType<TException>(exception);
