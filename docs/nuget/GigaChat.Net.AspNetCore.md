@@ -105,6 +105,65 @@ builder.Services.AddGigaChat(
     provider => provider.GetRequiredService<IHttpClientFactory>().CreateClient("GigaChat"));
 ```
 
+## Semantic Kernel в ASP.NET Core
+
+Если ASP.NET Core приложение использует Semantic Kernel, зарегистрируйте `Kernel`
+поверх уже настроенного `IGigaChatClient`. Для этого добавьте пакет
+`GigaChat.Net.SemanticKernel`.
+
+```csharp
+using GigaChat.Net;
+using GigaChat.Net.AspNetCore;
+using GigaChat.Net.SemanticKernel;
+using Microsoft.Extensions.Options;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
+
+builder.Services.AddGigaChat(builder.Configuration);
+
+builder.Services.AddSingleton(provider =>
+{
+    var client = provider.GetRequiredService<IGigaChatClient>();
+    var options = provider.GetRequiredService<IOptions<GigaChatOptions>>().Value;
+
+    return Kernel.CreateBuilder()
+        .AddGigaChatChatCompletion(client, modelId: options.Model, endpoint: options.BaseUrl)
+        .Build();
+});
+
+builder.Services.AddSingleton(provider => provider
+    .GetRequiredService<Kernel>()
+    .Services
+    .GetRequiredService<IChatCompletionService>());
+
+app.MapPost("/semantic-kernel/chat", async (
+    ChatRequest request,
+    IChatCompletionService chat,
+    CancellationToken cancellationToken) =>
+{
+    ChatHistory history =
+    [
+        new ChatMessageContent(AuthorRole.System, "Ты ASP.NET Core ассистент."),
+        new ChatMessageContent(AuthorRole.User, request.Message)
+    ];
+
+    var response = await chat.GetChatMessageContentsAsync(
+        history,
+        new GigaChatPromptExecutionSettings
+        {
+            Temperature = 0.2,
+            MaxTokens = 700
+        },
+        cancellationToken: cancellationToken);
+
+    return Results.Ok(response[0].Content);
+});
+```
+
+Расширенный пример с endpoints для chat, streaming, structured output,
+Semantic Kernel plugins/tools и `ChatCompletionAgent` находится в
+`examples/GigaChat.AspNetCore.Example`.
+
 ## Документация
 
 Полная документация и пример приложения находятся в репозитории:

@@ -2,6 +2,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\GigaChat.Net.AspNetCore\GigaChat.Net.AspNetCore.csproj" />
+    <ProjectReference Include="..\..\src\GigaChat.Net.SemanticKernel\GigaChat.Net.SemanticKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.76.0" />
   </ItemGroup>
 
   <PropertyGroup>
