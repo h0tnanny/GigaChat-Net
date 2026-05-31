@@ -67,8 +67,9 @@ catch (GigaChatException ex)
 static async Task RunChatAsync(GigaChatChatModel chatModel)
 {
     Console.WriteLine("1. Chat:");
-    var response = await LastAsync(chatModel.GenerateAsync(
-        ChatRequest.ToChatRequest("Привет! Ответь одной короткой фразой.")));
+    var response = await chatModel
+        .GenerateAsync(ChatRequest.ToChatRequest("Привет! Ответь одной короткой фразой."))
+        .LastResponseAsync();
     Console.WriteLine(response.LastMessageContent);
     Console.WriteLine();
 }
@@ -121,13 +122,15 @@ static async Task RunFunctionToolAsync(GigaChatChatModel chatModel)
     chatModel.CallToolsAutomatically = true;
     chatModel.ReplyToToolCallsAutomatically = true;
 
-    var response = await LastAsync(chatModel.GenerateAsync(
-        ChatRequest.ToChatRequest("Какая погода в Москве? Используй get_weather."),
-        new GigaChatChatSettings
-        {
-            ToolChoice = "auto",
-            AllowAnyToolChoiceFallback = true
-        }));
+    var response = await chatModel
+        .GenerateAsync(
+            ChatRequest.ToChatRequest("Какая погода в Москве? Используй get_weather."),
+            new GigaChatChatSettings
+            {
+                ToolChoice = "auto",
+                AllowAnyToolChoiceFallback = true
+            })
+        .LastResponseAsync();
 
     if (response is GigaChatChatResponse { FunctionCalls.Count: > 0 } gigaResponse)
     {
@@ -160,30 +163,23 @@ static async Task RunFileHelperAsync(
     var uploaded = await provider.UploadFileAsync(stream, Path.GetFileName(imagePath));
     Console.WriteLine($"Uploaded file id: {uploaded.Id}");
 
-    var response = await LastAsync(chatModel.GenerateAsync(
-        new ChatRequest
-        {
-            Messages = [Message.Human("Опиши изображение в одном предложении.")]
-        },
-        new GigaChatChatSettings
-        {
-            AttachmentsByMessageIndex = new Dictionary<int, IReadOnlyList<string>>
+    var response = await chatModel
+        .GenerateAsync(
+            new ChatRequest
             {
-                [0] = [uploaded.Id]
-            }
-        }));
+                Messages = [Message.Human("Опиши изображение в одном предложении.")]
+            },
+            new GigaChatChatSettings
+            {
+                AttachmentsByMessageIndex = new Dictionary<int, IReadOnlyList<string>>
+                {
+                    [0] = [uploaded.Id]
+                }
+            })
+        .LastResponseAsync();
 
     Console.WriteLine(response.LastMessageContent);
     Console.WriteLine();
-}
-
-static async Task<ChatResponse> LastAsync(IAsyncEnumerable<ChatResponse> responses)
-{
-    ChatResponse? last = null;
-    await foreach (var response in responses)
-        last = response;
-
-    return last ?? throw new InvalidOperationException("The model returned no responses.");
 }
 
 static string? GetOption(IReadOnlyList<string> args, string name)
