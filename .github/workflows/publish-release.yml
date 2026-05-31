@@ -15,6 +15,8 @@ permissions:
   contents: read
 
 env:
+  GIGACHAT_BASE_URL: https://example.test/api/v1
+  GIGACHAT_AUTH_URL: https://auth.example.test/oauth
   NUGET_SOURCE: https://api.nuget.org/v3/index.json
 
 jobs:
