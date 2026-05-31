@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.ComponentModel;
 using System.Text.Json;
 using GigaChat.Net;
 using GigaChat.Net.Models;
@@ -43,7 +44,7 @@ await RunSectionAsync(
 
 await RunSectionAsync(
     "Structured output",
-    async () => await RunStructuredOutputAsync(chatService, client, prompt, requestHeaders, cts.Token));
+    async () => await RunStructuredOutputAsync(chatService, prompt, requestHeaders, cts.Token));
 
 await RunSectionAsync(
     "GigaChat SDK probes",
@@ -208,12 +209,12 @@ static async Task RunAgentAsync(
 
 static async Task RunStructuredOutputAsync(
     IChatCompletionService chatService,
-    IGigaChatClient client,
     string prompt,
     GigaChatRequestHeaders? requestHeaders,
     CancellationToken cancellationToken)
 {
-    var schema = JsonSchemaResponseFormat.FromType<ReleasePlan>();
+    var jsonOptions = CreateStructuredJsonOptions();
+    var schema = JsonSchemaResponseFormat.FromType<ReleasePlan>(jsonOptions: jsonOptions);
     ChatHistory history =
     [
         new ChatMessageContent(
@@ -239,28 +240,10 @@ static async Task RunStructuredOutputAsync(
     var rawJson = messages[0].Content ?? "{}";
     var skPlan = JsonSerializer.Deserialize<ReleasePlan>(
             rawJson,
-            new JsonSerializerOptions(JsonSerializerDefaults.Web))
+            jsonOptions)
         ?? throw new InvalidOperationException("Structured Semantic Kernel response was empty.");
 
     PrintReleasePlan("Semantic Kernel response_format", skPlan);
-
-    var sdkPlan = await client.ChatParseAsync<ReleasePlan>(
-        new Chat
-        {
-            Messages =
-            [
-                Messages.System("Верни только JSON по схеме."),
-                Messages.User($"Собери структурированный план релиза для задачи: {prompt}")
-            ],
-            Temperature = 0.1,
-            MaxTokens = 900
-        },
-        requestHeaders,
-        strict: true,
-        jsonOptions: new JsonSerializerOptions(JsonSerializerDefaults.Web),
-        cancellationToken: cancellationToken);
-
-    PrintReleasePlan("SDK ChatParse<T>", sdkPlan.Parsed);
 }
 
 static async Task RunSdkProbesAsync(
@@ -337,6 +320,12 @@ static double GetDouble(string name, double fallback)
 static string FormatDouble(double value) =>
     value.ToString("0.####", CultureInfo.InvariantCulture);
 
+static JsonSerializerOptions CreateStructuredJsonOptions() =>
+    new(JsonSerializerDefaults.Web)
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+    };
+
 static void PrintReleasePlan(string label, ReleasePlan plan)
 {
     Console.WriteLine($"{label}:");
@@ -345,11 +334,26 @@ static void PrintReleasePlan(string label, ReleasePlan plan)
     Console.WriteLine($"  tasks: {string.Join("; ", plan.Tasks)}");
 }
 
+/// <summary>
+/// Structured release plan returned by GigaChat through Semantic Kernel response_format.
+/// </summary>
 internal sealed record ReleasePlan
 {
+    /// <summary>
+    /// Short human-readable release summary.
+    /// </summary>
+    [Description("Short human-readable release summary.")]
     public required string Summary { get; init; }
 
+    /// <summary>
+    /// Overall release risk level, for example low, medium, or high.
+    /// </summary>
+    [Description("Overall release risk level, for example low, medium, or high.")]
     public required string RiskLevel { get; init; }
 
+    /// <summary>
+    /// Concrete release tasks that should be completed.
+    /// </summary>
+    [Description("Concrete release tasks that should be completed.")]
     public required IReadOnlyList<string> Tasks { get; init; }
 }
