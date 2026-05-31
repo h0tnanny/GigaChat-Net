@@ -53,7 +53,8 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
         ArgumentNullException.ThrowIfNull(chatHistory);
 
         var settings = GigaChatPromptExecutionSettings.FromExecutionSettings(executionSettings);
-        var chat = CreateChat(chatHistory, settings);
+        var functionMap = GigaChatKernelFunctionMapper.CreateFunctionMap(chatHistory, settings, kernel);
+        var chat = CreateChat(chatHistory, settings, functionMap);
         var completion = await _client.ChatAsync(chat, settings.Headers, cancellationToken);
 
         return completion.Choices
@@ -71,7 +72,8 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
         ArgumentNullException.ThrowIfNull(chatHistory);
 
         var settings = GigaChatPromptExecutionSettings.FromExecutionSettings(executionSettings);
-        var chat = CreateChat(chatHistory, settings);
+        var functionMap = GigaChatKernelFunctionMapper.CreateFunctionMap(chatHistory, settings, kernel);
+        var chat = CreateChat(chatHistory, settings, functionMap);
 
         await foreach (var chunk in _client.StreamAsync(chat, settings.Headers, cancellationToken))
         {
@@ -92,7 +94,10 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
         }
     }
 
-    private Chat CreateChat(ChatHistory chatHistory, GigaChatPromptExecutionSettings settings)
+    private Chat CreateChat(
+        ChatHistory chatHistory,
+        GigaChatPromptExecutionSettings settings,
+        GigaChatKernelFunctionMap? functionMap = null)
     {
         return new Chat
         {
@@ -105,8 +110,22 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
             ProfanityCheck = settings.ProfanityCheck,
             Flags = settings.Flags,
             ReasoningEffort = settings.ReasoningEffort,
+            FunctionCall = ToGigaChatFunctionCallMode(functionMap),
+            Functions = functionMap?.Functions,
             AdditionalFields = settings.AdditionalFields
         };
+    }
+
+    private static object? ToGigaChatFunctionCallMode(GigaChatKernelFunctionMap? functionMap)
+    {
+        if (functionMap is null)
+            return null;
+        if (functionMap.Choice == FunctionChoice.None)
+            return FunctionCallMode.None;
+        if (functionMap.Choice == FunctionChoice.Required && functionMap.Functions.Count == 1)
+            return ChatFunctionCall.For(functionMap.Functions[0].Name);
+
+        return FunctionCallMode.Auto;
     }
 
     private static Messages ToGigaChatMessage(ChatMessageContent message)

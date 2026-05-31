@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text.Json;
 using GigaChat.Net.SemanticKernel;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,6 +54,46 @@ public class SemanticKernelTests
         Assert.False(body.RootElement.GetProperty("profanity_check").GetBoolean());
         Assert.Equal("trace", body.RootElement.GetProperty("flags")[0].GetString());
         Assert.Equal("low", body.RootElement.GetProperty("reasoning_effort").GetString());
+    }
+
+    [Fact]
+    public async Task ChatCompletionServiceMapsSemanticKernelFunctionsToGigaChatRequest()
+    {
+        var handler = new RecordingHandler();
+        handler.QueueJson(TestData.Fixture("chat_completion.json"));
+        using var client = new GigaChatClient(
+            new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl },
+            handler);
+        var service = new GigaChatChatCompletionService(client);
+        var kernel = Kernel.CreateBuilder().Build();
+        kernel.Plugins.AddFromObject(new WeatherPlugin(), "weather");
+        ChatHistory history = [new ChatMessageContent(AuthorRole.User, "weather in Tokyo")];
+
+        await service.GetChatMessageContentsAsync(
+            history,
+            new GigaChatPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
+            },
+            kernel);
+
+        var request = Assert.Single(handler.Requests);
+        using var body = JsonDocument.Parse(request.Body!);
+        Assert.Equal("auto", body.RootElement.GetProperty("function_call").GetString());
+
+        var function = Assert.Single(body.RootElement.GetProperty("functions").EnumerateArray());
+        Assert.Equal("weather_get_weather", function.GetProperty("name").GetString());
+        Assert.Equal("Gets current weather for a city.", function.GetProperty("description").GetString());
+
+        var parameters = function.GetProperty("parameters");
+        Assert.Equal("object", parameters.GetProperty("type").GetString());
+        Assert.Equal("city", Assert.Single(parameters.GetProperty("required").EnumerateArray()).GetString());
+
+        var city = parameters
+            .GetProperty("properties")
+            .GetProperty("city");
+        Assert.Equal("string", city.GetProperty("type").GetString());
+        Assert.Equal("City name.", city.GetProperty("description").GetString());
     }
 
     [Fact]
@@ -168,5 +209,12 @@ public class SemanticKernelTests
         Assert.Equal(64, settings.MaxTokens);
         Assert.Equal("debug", Assert.Single(settings.Flags!));
         Assert.Equal("custom-value", settings.AdditionalFields!["custom_field"]);
+    }
+
+    private sealed class WeatherPlugin
+    {
+        [KernelFunction("get_weather")]
+        [Description("Gets current weather for a city.")]
+        public string GetWeather([Description("City name.")] string city) => $"{city} is 22 C";
     }
 }
