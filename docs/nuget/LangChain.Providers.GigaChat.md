@@ -69,7 +69,31 @@ Console.WriteLine(response.Values[0].Length);
 
 ## Tools and Structured Output
 
-Tools supplied through `ChatRequest.Tools` are converted to GigaChat function definitions. GigaChat supports one function call per assistant message; unsupported `tool_choice = "any"` is rejected unless `AllowAnyToolChoiceFallback` is enabled.
+In GigaChat, chat `tools` are function definitions. The provider can use plain LangChain `ChatRequest.Tools`, or executable SDK functions created with `FunctionTool.Create<TArgs>()`.
+
+```csharp
+using GigaChat.Net;
+
+public sealed record WeatherArgs
+{
+    public required string City { get; init; }
+}
+
+var weather = FunctionTool.Create<WeatherArgs>(
+    "get_weather",
+    "Get current weather by city",
+    args => $"{args.City}: 22C");
+
+model.AddFunctionTools(weather);
+model.CallToolsAutomatically = true;
+model.ReplyToToolCallsAutomatically = true;
+
+var response = await model.GenerateAsync(
+    ChatRequest.ToChatRequest("Какая погода в Москве?"),
+    new GigaChatChatSettings { ToolChoice = "auto" });
+```
+
+Tools supplied through `ChatRequest.Tools` are also converted to GigaChat function definitions. GigaChat supports one function call per assistant message; unsupported `tool_choice = "any"` is rejected unless `AllowAnyToolChoiceFallback` is enabled.
 
 ```csharp
 var parsed = await model.GenerateStructuredAsync<MyDto>(

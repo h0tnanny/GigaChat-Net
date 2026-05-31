@@ -312,7 +312,9 @@ await foreach (var response in model.GenerateAsync(ChatRequest.ToChatRequest("П
 ```
 
 Provider поддерживает streaming, embeddings, token counting, GigaChat tools, JSON schema
-structured output и file helpers.
+structured output и file helpers. SDK `FunctionTool.Create<TArgs>()` можно напрямую
+подключить к модели через `GigaChatChatModel.AddFunctionTools(...)`, включая локальный
+handler и автоматический reply-to-tool-call цикл.
 
 Полный консольный пример находится в
 [`examples/LangChain.GigaChat.Example`](examples/LangChain.GigaChat.Example):

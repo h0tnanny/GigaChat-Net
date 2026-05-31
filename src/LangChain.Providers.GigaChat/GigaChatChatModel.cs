@@ -13,7 +13,14 @@ public sealed class GigaChatChatModel :
     IModel<GigaChatChatSettings>,
     ISupportsCountTokens
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
+
     private readonly IGigaChatClient _client;
+    private readonly Dictionary<string, IChatFunctionTool> _functionTools = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Initializes a new GigaChat chat model.
@@ -32,6 +39,77 @@ public sealed class GigaChatChatModel :
     {
         get => Settings as GigaChatChatSettings;
         set => Settings = value ?? new GigaChatChatSettings();
+    }
+
+    /// <summary>
+    /// Adds executable SDK function tools as LangChain global tools and local handlers.
+    /// </summary>
+    public GigaChatChatModel AddFunctionTools(params IChatFunctionTool[] functionTools)
+    {
+        ArgumentNullException.ThrowIfNull(functionTools);
+
+        return AddFunctionTools((IReadOnlyCollection<IChatFunctionTool>)functionTools);
+    }
+
+    /// <summary>
+    /// Adds executable SDK function tools as LangChain global tools and local handlers.
+    /// </summary>
+    public GigaChatChatModel AddFunctionTools(IReadOnlyCollection<IChatFunctionTool> functionTools)
+    {
+        ArgumentNullException.ThrowIfNull(functionTools);
+
+        if (functionTools.Count == 0)
+            return this;
+
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        var tools = new List<CSharpToJsonSchema.Tool>(functionTools.Count);
+        var calls = new Dictionary<string, Func<string, CancellationToken, Task<string>>>(StringComparer.Ordinal);
+
+        foreach (var functionTool in functionTools)
+        {
+            ArgumentNullException.ThrowIfNull(functionTool);
+            ArgumentException.ThrowIfNullOrWhiteSpace(functionTool.Name);
+            ArgumentNullException.ThrowIfNull(functionTool.Function);
+
+            if (!string.Equals(functionTool.Name, functionTool.Function.Name, StringComparison.Ordinal))
+            {
+                throw new ArgumentException(
+                    $"Function tool name '{functionTool.Name}' must match function definition name '{functionTool.Function.Name}'.",
+                    nameof(functionTools));
+            }
+
+            if (!names.Add(functionTool.Name)
+                || _functionTools.ContainsKey(functionTool.Name)
+                || GlobalTools.Any(tool => string.Equals(tool.Name, functionTool.Name, StringComparison.Ordinal)))
+            {
+                throw new ArgumentException($"Duplicate function tool name '{functionTool.Name}'.", nameof(functionTools));
+            }
+
+            tools.Add(functionTool.ToLangChainTool());
+            calls[functionTool.Name] = functionTool.ToLangChainHandler();
+        }
+
+        foreach (var functionTool in functionTools)
+            _functionTools.Add(functionTool.Name, functionTool);
+
+        AddGlobalTools(tools, calls);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds executable SDK function tools as LangChain global tools and local handlers.
+    /// </summary>
+    public GigaChatChatModel AddGigaChatFunctionTools(params IChatFunctionTool[] functionTools)
+    {
+        return AddFunctionTools(functionTools);
+    }
+
+    /// <summary>
+    /// Adds executable SDK function tools as LangChain global tools and local handlers.
+    /// </summary>
+    public GigaChatChatModel AddGigaChatFunctionTools(IReadOnlyCollection<IChatFunctionTool> functionTools)
+    {
+        return AddFunctionTools(functionTools);
     }
 
     /// <inheritdoc />
@@ -58,9 +136,15 @@ public sealed class GigaChatChatModel :
             yield break;
         }
 
-        var completion = await _client.ChatAsync(chat, cancellationToken).ConfigureAwait(false);
-        var chatResponse = ToChatResponse(completion, effective, request.Messages?.Count ?? 0);
-        AddUsage(chatResponse.Usage);
+        var functionCalls = new List<ExecutedFunctionCall>();
+        var completion = await CompleteChatAsync(
+                chat,
+                effective,
+                request.Messages?.Count ?? 0,
+                functionCalls,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var chatResponse = ToChatResponse(completion, effective, request.Messages?.Count ?? 0, functionCalls);
         OnResponseReceived(chatResponse);
 
         yield return chatResponse;
@@ -178,6 +262,50 @@ public sealed class GigaChatChatModel :
         }
     }
 
+    private async Task<ChatCompletion> CompleteChatAsync(
+        Chat chat,
+        GigaChatChatSettings settings,
+        int messageCount,
+        List<ExecutedFunctionCall> functionCalls,
+        CancellationToken cancellationToken)
+    {
+        var maxFunctionCalls = settings.MaxAutomaticFunctionCalls ?? 8;
+        if (maxFunctionCalls < 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                "Maximum automatic function calls cannot be negative.");
+
+        var messages = chat.Messages.ToList();
+
+        for (var callIndex = 0;; callIndex++)
+        {
+            var completion = await _client
+                .ChatAsync(chat with { Messages = messages }, cancellationToken)
+                .ConfigureAwait(false);
+            AddUsage(ToLangChainUsage(completion.Usage, messageCount));
+
+            var choice = GetFirstChoice(completion);
+            if (!ShouldContinueToolLoop(choice))
+                return completion;
+
+            if (!CallToolsAutomatically || !ReplyToToolCallsAutomatically)
+                return completion;
+
+            var message = choice!.Message;
+            messages.Add(message);
+
+            var functionCall = message.FunctionCall
+                ?? throw new GigaChatException("Model returned function_call finish reason without function_call payload.");
+
+            if (callIndex >= maxFunctionCalls)
+                throw new GigaChatException($"Function calling exceeded the maximum of {maxFunctionCalls} tool calls.");
+
+            var result = await InvokeFunctionToolAsync(functionCall, cancellationToken).ConfigureAwait(false);
+            messages.Add(Messages.Function(functionCall.Name, result));
+            functionCalls.Add(new ExecutedFunctionCall(functionCall, result));
+        }
+    }
+
     private IReadOnlyCollection<CSharpToJsonSchema.Tool> MergeTools(
         IReadOnlyCollection<CSharpToJsonSchema.Tool>? requestTools)
     {
@@ -204,14 +332,50 @@ public sealed class GigaChatChatModel :
         };
     }
 
+    private async Task<string> InvokeFunctionToolAsync(
+        FunctionCall functionCall,
+        CancellationToken cancellationToken)
+    {
+        if (_functionTools.TryGetValue(functionCall.Name, out var functionTool))
+        {
+            return await functionTool
+                .InvokeAsync(functionCall, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (Calls.TryGetValue(functionCall.Name, out var call))
+        {
+            var arguments = JsonSerializer.Serialize(
+                functionCall.Arguments ?? new Dictionary<string, object?>(),
+                SerializerOptions);
+            return await call(arguments, cancellationToken).ConfigureAwait(false);
+        }
+
+        throw new GigaChatException($"Unknown function call '{functionCall.Name}'.");
+    }
+
+    private static Choices? GetFirstChoice(ChatCompletion completion)
+    {
+        return completion.Choices.Count == 0
+            ? null
+            : completion.Choices.OrderBy(item => item.Index).First();
+    }
+
+    private static bool ShouldContinueToolLoop(Choices? choice)
+    {
+        return choice is not null
+            && (string.Equals(choice.FinishReason, "function_call", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(choice.FinishReason, "tool_calls", StringComparison.OrdinalIgnoreCase)
+                || choice.Message.FunctionCall is not null);
+    }
+
     private static GigaChatChatResponse ToChatResponse(
         ChatCompletion completion,
         GigaChatChatSettings settings,
-        int messageCount)
+        int messageCount,
+        IReadOnlyList<ExecutedFunctionCall>? functionCalls = null)
     {
-        var choice = completion.Choices.Count == 0
-            ? null
-            : completion.Choices.OrderBy(item => item.Index).First();
+        var choice = GetFirstChoice(completion);
         var message = choice?.Message;
         var usage = ToLangChainUsage(completion.Usage, messageCount);
 
@@ -227,7 +391,8 @@ public sealed class GigaChatChatModel :
             RequestId = GetRequestId(completion.XHeaders),
             ReasoningContent = message?.ReasoningContent,
             XHeaders = completion.XHeaders,
-            RawCompletion = completion
+            RawCompletion = completion,
+            FunctionCalls = functionCalls ?? []
         };
     }
 

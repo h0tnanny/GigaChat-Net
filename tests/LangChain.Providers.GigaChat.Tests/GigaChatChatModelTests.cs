@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using CSharpToJsonSchema;
 using GigaChat.Net;
 using GigaChat.Net.Models;
@@ -200,6 +201,101 @@ public class GigaChatChatModelTests
     }
 
     [Fact]
+    public void FunctionToolConvertsToLangChainToolPreservingSchema()
+    {
+        var functionTool = FunctionTool.Create<WeatherArguments>(
+            "get_weather",
+            "Get current weather by city",
+            arguments => $"{arguments.City}:{arguments.Days}");
+
+        var tool = functionTool.ToLangChainTool();
+
+        Assert.Equal("get_weather", tool.Name);
+        Assert.Equal("Get current weather by city", tool.Description);
+
+        var parameters = Assert.IsType<FunctionParameters>(tool.Parameters);
+        Assert.Equal("object", parameters.Type);
+        Assert.Equal("string", parameters.Properties!["city"].Type);
+        Assert.Equal("City name", parameters.Properties["city"].Description);
+        Assert.Equal("integer", parameters.Properties["days"].Type);
+        Assert.NotNull(parameters.Required);
+        var required = parameters.Required;
+        Assert.Contains("city", required);
+        Assert.Contains("days", required);
+    }
+
+    [Fact]
+    public async Task AddFunctionToolsRegistersGlobalToolAndInvokesHandlerAutomatically()
+    {
+        var captured = new List<Chat>();
+        var responses = new Queue<ChatCompletion>([
+            Completion(
+                "",
+                "function_call",
+                functionCall: new FunctionCall
+                {
+                    Name = "get_weather",
+                    Arguments = new Dictionary<string, object?>
+                    {
+                        ["city"] = "Moscow",
+                        ["days"] = 1
+                    }
+                }),
+            Completion("Moscow is 22 C", "stop")
+        ]);
+        var (client, fake) = FakeGigaChatClient.Create();
+        fake.ChatAsyncHandler = (chat, _) =>
+        {
+            captured.Add(chat);
+            return Task.FromResult(responses.Dequeue());
+        };
+
+        var model = new GigaChatChatModel(client)
+        {
+            CallToolsAutomatically = true,
+            ReplyToToolCallsAutomatically = true
+        };
+        model.AddFunctionTools(FunctionTool.Create<WeatherArguments>(
+            "get_weather",
+            "Get current weather by city",
+            arguments => $"{arguments.City} for {arguments.Days} day(s) is 22 C"));
+
+        var responsesFromModel = await CollectAsync(model.GenerateAsync(ChatRequest.ToChatRequest("Weather?")));
+
+        var response = Assert.IsType<GigaChatChatResponse>(Assert.Single(responsesFromModel));
+        Assert.Equal("Moscow is 22 C", response.LastMessageContent);
+        var executed = Assert.Single(response.FunctionCalls);
+        Assert.Equal("get_weather", executed.Call.Name);
+        Assert.Equal("Moscow for 1 day(s) is 22 C", executed.Result);
+
+        Assert.Equal(2, captured.Count);
+        var function = Assert.Single(captured[0].Functions!);
+        Assert.Equal("get_weather", function.Name);
+        Assert.Equal(FunctionCallMode.Auto, captured[0].FunctionCall);
+
+        Assert.Equal(MessagesRole.Assistant, captured[1].Messages[1].Role);
+        Assert.Equal("get_weather", captured[1].Messages[1].FunctionCall!.Name);
+        Assert.Equal(MessagesRole.Function, captured[1].Messages[2].Role);
+        Assert.Equal("get_weather", captured[1].Messages[2].Name);
+        Assert.Equal("Moscow for 1 day(s) is 22 C", captured[1].Messages[2].Content);
+    }
+
+    [Fact]
+    public void AddFunctionToolsRejectsDuplicateNames()
+    {
+        var (client, _) = FakeGigaChatClient.Create();
+        var model = new GigaChatChatModel(client);
+        var tool = FunctionTool.Create<WeatherArguments>(
+            "get_weather",
+            "Get current weather by city",
+            arguments => arguments.City);
+
+        model.AddFunctionTools(tool);
+
+        Assert.Throws<ArgumentException>(() => model.AddFunctionTools(tool));
+    }
+
+    [Fact]
     public async Task UploadsRequestImageWhenEnabled()
     {
         Chat? captured = null;
@@ -277,7 +373,8 @@ public class GigaChatChatModelTests
         string finishReason = "stop",
         SdkUsage? usage = null,
         Dictionary<string, string?>? headers = null,
-        string? reasoning = null)
+        string? reasoning = null,
+        FunctionCall? functionCall = null)
     {
         return new ChatCompletion
         {
@@ -287,7 +384,7 @@ public class GigaChatChatModelTests
                 {
                     Index = 0,
                     FinishReason = finishReason,
-                    Message = Messages.Assistant(content) with { ReasoningContent = reasoning }
+                    Message = Messages.Assistant(content, functionCall) with { ReasoningContent = reasoning }
                 }
             ],
             Created = 1,
@@ -342,5 +439,13 @@ public class GigaChatChatModelTests
     private sealed record Answer
     {
         public string AnswerText { get; init; } = "";
+    }
+
+    private sealed record WeatherArguments
+    {
+        [Description("City name")]
+        public required string City { get; init; }
+
+        public required int Days { get; init; }
     }
 }

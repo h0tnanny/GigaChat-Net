@@ -68,6 +68,11 @@ public sealed class GigaChatChatSettings : ChatSettings
     public bool? AllowAnyToolChoiceFallback { get; set; }
 
     /// <summary>
+    /// Maximum number of local function calls during automatic tool replies.
+    /// </summary>
+    public int? MaxAutomaticFunctionCalls { get; set; }
+
+    /// <summary>
     /// File name used when <see cref="ChatRequest.Image"/> is uploaded.
     /// </summary>
     public string ImageFileName { get; set; } = "image.png";
@@ -96,6 +101,8 @@ public sealed class GigaChatChatSettings : ChatSettings
             AutoUploadAttachments = incoming?.AutoUploadAttachments ?? modelSettings?.AutoUploadAttachments,
             AllowAnyToolChoiceFallback =
                 incoming?.AllowAnyToolChoiceFallback ?? modelSettings?.AllowAnyToolChoiceFallback,
+            MaxAutomaticFunctionCalls =
+                incoming?.MaxAutomaticFunctionCalls ?? modelSettings?.MaxAutomaticFunctionCalls,
             ImageFileName = incoming?.ImageFileName ?? modelSettings?.ImageFileName ?? "image.png"
         };
 

@@ -1,3 +1,4 @@
+using GigaChat.Net;
 using GigaChat.Net.Models;
 
 namespace LangChain.Providers.GigaChat;
@@ -36,6 +37,11 @@ public sealed class GigaChatChatResponse : ChatResponse
     /// Raw non-streaming completion, when available.
     /// </summary>
     public ChatCompletion? RawCompletion { get; set; }
+
+    /// <summary>
+    /// Local SDK function calls executed before the final response.
+    /// </summary>
+    public IReadOnlyList<ExecutedFunctionCall> FunctionCalls { get; set; } = [];
 }
 
 /// <summary>

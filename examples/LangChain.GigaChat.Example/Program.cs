@@ -1,4 +1,3 @@
-using CSharpToJsonSchema;
 using GigaChat.Net;
 using LangChain.Providers;
 using LangChain.Providers.GigaChat;
@@ -45,7 +44,7 @@ try
     await RunStreamingAsync(chatModel);
     await RunEmbeddingsAsync(embeddingModel);
     await RunStructuredOutputAsync(chatModel);
-    await RunToolSchemaAsync(chatModel);
+    await RunFunctionToolAsync(provider.CreateChatModel());
 
     if (!string.IsNullOrWhiteSpace(imagePath))
         await RunFileHelperAsync(provider, chatModel, imagePath);
@@ -110,44 +109,37 @@ static async Task RunStructuredOutputAsync(GigaChatChatModel chatModel)
     Console.WriteLine();
 }
 
-static async Task RunToolSchemaAsync(GigaChatChatModel chatModel)
+static async Task RunFunctionToolAsync(GigaChatChatModel chatModel)
 {
-    Console.WriteLine("5. Tool schema and tool_choice:");
-    var weatherTool = new Tool
-    {
-        Name = "get_weather",
-        Description = "Get current weather for a city.",
-        Parameters = new
-        {
-            type = "object",
-            properties = new Dictionary<string, object>
-            {
-                ["city"] = new
-                {
-                    type = "string",
-                    description = "City name, for example Moscow"
-                }
-            },
-            required = new[] { "city" }
-        }
-    };
+    Console.WriteLine("5. SDK FunctionTool through LangChain:");
+    var weatherTool = FunctionTool.Create<WeatherArguments>(
+        "get_weather",
+        "Get current weather for a city.",
+        arguments => $"{arguments.City}: ясно, {arguments.Days} день, 22C");
+
+    chatModel.AddFunctionTools(weatherTool);
+    chatModel.CallToolsAutomatically = true;
+    chatModel.ReplyToToolCallsAutomatically = true;
 
     var response = await LastAsync(chatModel.GenerateAsync(
-        new ChatRequest
-        {
-            Messages = [Message.Human("Какая погода в Москве?")],
-            Tools = [weatherTool]
-        },
+        ChatRequest.ToChatRequest("Какая погода в Москве? Используй get_weather."),
         new GigaChatChatSettings
         {
             ToolChoice = "auto",
             AllowAnyToolChoiceFallback = true
         }));
 
-    if (response.ToolCalls.Count > 0)
+    if (response is GigaChatChatResponse { FunctionCalls.Count: > 0 } gigaResponse)
+    {
+        foreach (var call in gigaResponse.FunctionCalls)
+            Console.WriteLine($"Function executed: {call.Call.Name} -> {call.Result}");
+
+        Console.WriteLine(response.LastMessageContent);
+    }
+    else if (response.ToolCalls.Count > 0)
     {
         foreach (var call in response.ToolCalls)
-            Console.WriteLine($"Tool requested: {call.ToolName}({call.ToolArguments})");
+            Console.WriteLine($"Function requested: {call.ToolName}({call.ToolArguments})");
     }
     else
     {
@@ -217,7 +209,7 @@ static void PrintDryRun(bool hasCredentials)
     Console.WriteLine("- Streaming deltas with UseStreaming=true");
     Console.WriteLine("- Embeddings through GigaChatEmbeddingModel");
     Console.WriteLine("- Structured output through GenerateStructuredAsync<T>()");
-    Console.WriteLine("- Tool schema/tool_choice mapping through ChatRequest.Tools");
+    Console.WriteLine("- SDK FunctionTool registration and automatic invocation through LangChain");
     Console.WriteLine("- Optional file upload and attachment with --image <path>");
     Console.WriteLine();
     PrintHelp();
@@ -242,4 +234,11 @@ internal sealed record WeatherSummary
     public string Summary { get; init; } = "";
 
     public int TemperatureC { get; init; }
+}
+
+internal sealed record WeatherArguments
+{
+    public required string City { get; init; }
+
+    public int Days { get; init; } = 1;
 }
