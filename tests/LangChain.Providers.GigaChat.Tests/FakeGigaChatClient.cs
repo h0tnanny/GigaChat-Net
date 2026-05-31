@@ -4,8 +4,10 @@ using GigaChat.Net.Models;
 
 namespace LangChain.Providers.GigaChat.Tests;
 
-internal class FakeGigaChatClient : DispatchProxy
+internal class FakeGigaChatClient : DispatchProxy, IDisposable
 {
+    public bool IsDisposed { get; private set; }
+
     public Func<Chat, CancellationToken, Task<ChatCompletion>>? ChatAsyncHandler { get; set; }
 
     public Func<Chat, CancellationToken, IAsyncEnumerable<ChatCompletionChunk>>? StreamAsyncHandler { get; set; }
@@ -118,6 +120,11 @@ internal class FakeGigaChatClient : DispatchProxy
         }
 
         throw new NotSupportedException($"Fake client method '{name}' is not configured for this test.");
+    }
+
+    public void Dispose()
+    {
+        IsDisposed = true;
     }
 
     private static Func<Chat, CancellationToken, Task<T>> ThrowChatNotConfigured<T>(string name)

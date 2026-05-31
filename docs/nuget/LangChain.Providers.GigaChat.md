@@ -33,6 +33,18 @@ await foreach (var response in model.GenerateAsync(ChatRequest.ToChatRequest("П
 
 Authentication is handled by `GigaChat.Net` settings and `GIGACHAT_*` environment variables.
 
+## Auth and TLS
+
+The provider does not implement its own authentication layer. It reuses `GigaChat.Net`, so credentials, access tokens, scopes, retry settings, and TLS certificate settings come from `Settings` or environment variables:
+
+```bash
+export GIGACHAT_CREDENTIALS="<authorization-key>"
+export GIGACHAT_SCOPE="GIGACHAT_API_PERS"
+export GIGACHAT_CA_BUNDLE_FILE="/path/to/Russian_Trusted_Root_CA.crt"
+```
+
+For local development only, `GIGACHAT_VERIFY_SSL_CERTS=false` is supported by the underlying SDK. Do not disable certificate validation in production.
+
 ## Streaming
 
 ```csharp

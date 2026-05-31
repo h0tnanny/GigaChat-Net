@@ -28,9 +28,9 @@ public sealed class GigaChatChatModel :
         Settings = settings ?? new GigaChatChatSettings();
     }
 
-    GigaChatChatSettings IModel<GigaChatChatSettings>.Settings
+    GigaChatChatSettings? IModel<GigaChatChatSettings>.Settings
     {
-        get => Settings as GigaChatChatSettings ?? new GigaChatChatSettings();
+        get => Settings as GigaChatChatSettings;
         set => Settings = value ?? new GigaChatChatSettings();
     }
 
@@ -125,7 +125,7 @@ public sealed class GigaChatChatModel :
             request.Messages,
             settings.AttachmentsByMessageIndex);
 
-        if (request.Image is not null && settings.AutoUploadAttachments)
+        if (request.Image is not null && settings.AutoUploadAttachments == true)
         {
             await using var imageStream = request.Image.ToStream();
             var upload = await _client.UploadFileAsync(
@@ -156,7 +156,7 @@ public sealed class GigaChatChatModel :
             FunctionCall = GigaChatMessageMapper.ToGigaChatFunctionCall(
                 settings.ToolChoice,
                 functions,
-                settings.AllowAnyToolChoiceFallback),
+                settings.AllowAnyToolChoiceFallback == true),
             AdditionalFields = additionalFields
         };
     }

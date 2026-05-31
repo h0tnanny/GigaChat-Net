@@ -31,6 +31,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="LangChain.Core" Version="0.17.1" ExcludeAssets="compile" />
     <PackageReference Include="LangChain.Providers.Abstractions" Version="0.17.0" />
     <ProjectReference Include="..\GigaChat.Net\GigaChat.Net.csproj" />
     <None Include="..\..\docs\nuget\LangChain.Providers.GigaChat.md" Pack="true" PackagePath="README.md" />

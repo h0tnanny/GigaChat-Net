@@ -128,6 +128,30 @@ public class GigaChatChatModelTests
     }
 
     [Fact]
+    public async Task ToolChoiceAutoAndNoneAreMapped()
+    {
+        var (client, _) = FakeGigaChatClient.Create();
+        var model = new GigaChatChatModel(client);
+        var request = new ChatRequest
+        {
+            Messages = [Message.Human("hello")],
+            Tools = [new Tool { Name = "lookup" }]
+        };
+
+        var auto = await model.CreateChatAsync(
+            request,
+            new GigaChatChatSettings { ToolChoice = "auto" },
+            CancellationToken.None);
+        var none = await model.CreateChatAsync(
+            request,
+            new GigaChatChatSettings { ToolChoice = "none" },
+            CancellationToken.None);
+
+        Assert.Equal(FunctionCallMode.Auto, auto.FunctionCall);
+        Assert.Equal(FunctionCallMode.None, none.FunctionCall);
+    }
+
+    [Fact]
     public async Task ToolChoiceAnyRequiresFallbackFlag()
     {
         var (client, _) = FakeGigaChatClient.Create();

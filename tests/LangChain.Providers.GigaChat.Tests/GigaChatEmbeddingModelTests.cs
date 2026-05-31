@@ -61,4 +61,42 @@ public class GigaChatEmbeddingModelTests
         Assert.Equal(2, response.Dimensions);
         Assert.Equal(3, response.Usage.InputTokens);
     }
+
+    [Fact]
+    public async Task QueryEmbeddingAppliesPrefixWhenEnabled()
+    {
+        var (client, fake) = FakeGigaChatClient.Create();
+        fake.EmbeddingsAsyncHandler = (texts, model, _) =>
+        {
+            Assert.Equal(["query:hello"], texts);
+            Assert.Equal("Embeddings", model);
+            return Task.FromResult(new Embeddings
+            {
+                Object = "list",
+                Model = model,
+                Data =
+                [
+                    new Embedding
+                    {
+                        Object = "embedding",
+                        Index = 0,
+                        EmbeddingVector = [1.0, 2.0],
+                        Usage = new EmbeddingsUsage { PromptTokens = 1 }
+                    }
+                ]
+            });
+        };
+
+        var model = new GigaChatEmbeddingModel(
+            client,
+            new GigaChatEmbeddingSettings
+            {
+                PrefixQuery = "query:",
+                UsePrefixQuery = true
+            });
+
+        var value = await model.CreateQueryEmbeddingAsync("hello");
+
+        Assert.Equal([1.0f, 2.0f], value);
+    }
 }

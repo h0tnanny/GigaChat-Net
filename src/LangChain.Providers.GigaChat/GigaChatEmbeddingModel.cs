@@ -24,7 +24,7 @@ public sealed class GigaChatEmbeddingModel :
         Settings = settings ?? new GigaChatEmbeddingSettings();
     }
 
-    EmbeddingSettings IModel<EmbeddingSettings>.Settings
+    EmbeddingSettings? IModel<EmbeddingSettings>.Settings
     {
         get => Settings;
         set => Settings = value as GigaChatEmbeddingSettings ?? new GigaChatEmbeddingSettings();
@@ -87,7 +87,7 @@ public sealed class GigaChatEmbeddingModel :
         CancellationToken cancellationToken = default)
     {
         var effective = GigaChatEmbeddingSettings.Merge(Settings, settings);
-        var input = effective.UsePrefixQuery ? effective.PrefixQuery + text : text;
+        var input = effective.UsePrefixQuery == true ? effective.PrefixQuery + text : text;
         var response = await CreateEmbeddingsAsync(
             EmbeddingRequest.ToEmbeddingRequest(input),
             effective,

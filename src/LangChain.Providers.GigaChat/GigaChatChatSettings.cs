@@ -60,12 +60,12 @@ public sealed class GigaChatChatSettings : ChatSettings
     /// <summary>
     /// Automatically upload <see cref="ChatRequest.Image"/> and attach it to the last user message.
     /// </summary>
-    public bool AutoUploadAttachments { get; set; }
+    public bool? AutoUploadAttachments { get; set; }
 
     /// <summary>
     /// Convert unsupported tool choice "any" to "auto" instead of throwing.
     /// </summary>
-    public bool AllowAnyToolChoiceFallback { get; set; }
+    public bool? AllowAnyToolChoiceFallback { get; set; }
 
     /// <summary>
     /// File name used when <see cref="ChatRequest.Image"/> is uploaded.
@@ -93,9 +93,9 @@ public sealed class GigaChatChatSettings : ChatSettings
             ToolChoice = incoming?.ToolChoice ?? modelSettings?.ToolChoice,
             AttachmentsByMessageIndex =
                 incoming?.AttachmentsByMessageIndex ?? modelSettings?.AttachmentsByMessageIndex,
-            AutoUploadAttachments = incoming?.AutoUploadAttachments ?? modelSettings?.AutoUploadAttachments ?? false,
+            AutoUploadAttachments = incoming?.AutoUploadAttachments ?? modelSettings?.AutoUploadAttachments,
             AllowAnyToolChoiceFallback =
-                incoming?.AllowAnyToolChoiceFallback ?? modelSettings?.AllowAnyToolChoiceFallback ?? false,
+                incoming?.AllowAnyToolChoiceFallback ?? modelSettings?.AllowAnyToolChoiceFallback,
             ImageFileName = incoming?.ImageFileName ?? modelSettings?.ImageFileName ?? "image.png"
         };
 
