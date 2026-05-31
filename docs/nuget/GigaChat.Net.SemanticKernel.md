@@ -1,33 +1,34 @@
 # GigaChat.Net.SemanticKernel
 
 `GigaChat.Net.SemanticKernel` - адаптер Microsoft Semantic Kernel для `GigaChat.Net`.
-Пакет регистрирует GigaChat как `IChatCompletionService`, чтобы GigaChat можно было
-использовать в Semantic Kernel pipelines, `ChatHistory`, streaming-сценариях и
+Он регистрирует GigaChat как `IChatCompletionService`, чтобы GigaChat можно было
+использовать в `ChatHistory`, streaming, structured output, Kernel plugins/tools и
 `ChatCompletionAgent`.
 
 ## Статус проекта
 
-Этот репозиторий ведется ИИ под контролем владельца проекта. Перенос SDK с Python библиотеки
-`gigachat` на .NET также был выполнен ИИ.
-
-Если при использовании Semantic Kernel интеграции вы обнаружите баг, несовместимость
-или неточность документации, пожалуйста, создайте GitHub Issue:
+Этот репозиторий ведется ИИ под контролем владельца проекта. Если при использовании
+Semantic Kernel интеграции вы обнаружите баг, несовместимость или неточность
+документации, пожалуйста, создайте GitHub Issue:
 
 https://github.com/h0tnanny/GigaChat-Net/issues
 
-Такие обращения будут приняты в работу и использованы для улучшения SDK.
+## Что это и зачем
 
-## Когда нужен этот пакет
+Semantic Kernel дает единый слой для chat completion, агентов, plugins/functions,
+prompt execution settings и истории диалога. Этот пакет подключает к этому слою
+GigaChat, не заставляя приложение работать напрямую с HTTP payload GigaChat.
 
-Используйте `GigaChat.Net.SemanticKernel`, если приложение уже строится вокруг
-Microsoft Semantic Kernel и вам нужен GigaChat как chat completion backend:
+Используйте пакет, когда приложение уже строится вокруг Semantic Kernel или когда
+нужны:
 
-- `IChatCompletionService` для прямой работы с `ChatHistory`;
+- `IChatCompletionService` для `ChatHistory`;
 - streaming через `GetStreamingChatMessageContentsAsync`;
-- агенты Semantic Kernel через `ChatCompletionAgent`;
-- GigaChat-специфичные настройки запроса в `GigaChatPromptExecutionSettings`;
-- per-call headers через `GigaChatRequestHeaders`;
-- structured output через GigaChat `response_format`.
+- Semantic Kernel plugins/tools через `FunctionChoiceBehavior.Auto()`;
+- агенты `ChatCompletionAgent`;
+- structured output через GigaChat `response_format`;
+- GigaChat-настройки через `GigaChatPromptExecutionSettings`;
+- per-call headers через `GigaChatRequestHeaders`.
 
 Если Semantic Kernel не используется, достаточно базового пакета `GigaChat.Net`.
 
@@ -37,7 +38,7 @@ Microsoft Semantic Kernel и вам нужен GigaChat как chat completion b
 dotnet add package GigaChat.Net.SemanticKernel
 ```
 
-Для агентов Microsoft Semantic Kernel добавьте пакет агентов:
+Для `ChatCompletionAgent` добавьте пакет агентов Semantic Kernel:
 
 ```bash
 dotnet add package Microsoft.SemanticKernel.Agents.Core
@@ -81,24 +82,18 @@ var response = await chat.GetChatMessageContentsAsync(
 Console.WriteLine(response[0].Content);
 ```
 
-Конфигурацию можно передавать через `Settings` или переменные окружения:
+Минимальная конфигурация через окружение:
 
 ```bash
-export GIGACHAT_CREDENTIALS="<your_authorization_key>"
+export GIGACHAT_CREDENTIALS="<authorization-key>"
 export GIGACHAT_SCOPE="GIGACHAT_API_PERS"
 export GIGACHAT_MODEL="GigaChat"
 ```
 
-## Регистрация существующего клиента
-
-Если в приложении уже настроен `IGigaChatClient` или нужен общий транспорт, можно
-передать готовый клиент в Kernel:
+Можно передать и готовый `IGigaChatClient`, если в приложении уже настроены
+transport, retries, сертификаты или общая авторизация:
 
 ```csharp
-using GigaChat.Net;
-using GigaChat.Net.SemanticKernel;
-using Microsoft.SemanticKernel;
-
 using var client = new GigaChatClient(new Settings
 {
     Credentials = Environment.GetEnvironmentVariable("GIGACHAT_CREDENTIALS"),
@@ -115,34 +110,73 @@ var kernel = Kernel.CreateBuilder()
     .Build();
 ```
 
-`serviceId` полезен, если в одном Kernel зарегистрировано несколько chat completion
-провайдеров.
+## Plugins/tools
 
-## Агенты Semantic Kernel
+Semantic Kernel plugins становятся GigaChat functions. Для автоматического вызова
+plugins включите `FunctionChoiceBehavior.Auto()` и передайте `kernel` в chat call.
 
 ```csharp
-using GigaChat.Net;
+using System.ComponentModel;
+using GigaChat.Net.SemanticKernel;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
+
+var kernel = Kernel.CreateBuilder()
+    .AddGigaChatChatCompletion(settings)
+    .Build();
+
+kernel.Plugins.AddFromObject(new ReleasePlugin(), "release");
+
+var result = await chat.GetChatMessageContentsAsync(
+    [
+        new ChatMessageContent(AuthorRole.System, "Используй release tools перед ответом."),
+        new ChatMessageContent(AuthorRole.User, "Проверь статус релиза semantic-kernel.")
+    ],
+    new GigaChatPromptExecutionSettings
+    {
+        FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+        MaxToolCalls = 4,
+        Temperature = 0.1
+    },
+    kernel);
+
+Console.WriteLine(result[0].Content);
+
+public sealed class ReleasePlugin
+{
+    [KernelFunction("get_ci_status")]
+    [Description("Returns current CI status for a branch.")]
+    public string GetCiStatus([Description("Branch name.")] string branch) =>
+        $"{branch}: build and tests are expected to pass";
+}
+```
+
+Имена GigaChat functions формируются стабильно как `Plugin_Function`, например
+`release_get_ci_status`. Результаты tool calls добавляются обратно в историю как
+GigaChat `function` messages. По умолчанию один completion может выполнить до
+`MaxToolCalls = 8` вызовов, чтобы избежать бесконечного цикла.
+
+## Agents
+
+`ChatCompletionAgent` использует тот же `IChatCompletionService`. Чтобы агент мог
+вызывать plugins, задайте `FunctionChoiceBehavior.Auto()` в `Agent.Arguments`.
+
+```csharp
 using GigaChat.Net.SemanticKernel;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 
-var kernel = Kernel.CreateBuilder()
-    .AddGigaChatChatCompletion(new Settings
-    {
-        Credentials = Environment.GetEnvironmentVariable("GIGACHAT_CREDENTIALS"),
-        Model = "GigaChat"
-    })
-    .Build();
-
 ChatCompletionAgent agent = new()
 {
-    Name = "GigaChatAgent",
-    Instructions = "Ты инженерный ассистент. Отвечай по делу и структурированно.",
+    Name = "GigaChatReleaseAgent",
+    Instructions = "Ты инженерный ассистент. Проверяй release risks и отвечай по делу.",
     Kernel = kernel,
     Arguments = new KernelArguments(new GigaChatPromptExecutionSettings
     {
         Temperature = 0.2,
-        MaxTokens = 800
+        MaxTokens = 800,
+        FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+        MaxToolCalls = 4
     })
 };
 
@@ -154,10 +188,9 @@ await foreach (var response in agent.InvokeAsync("Составь чеклист 
 
 ## Streaming
 
-```csharp
-using GigaChat.Net.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
+Text streaming без tools идет напрямую через GigaChat streaming API:
 
+```csharp
 await foreach (var chunk in chat.GetStreamingChatMessageContentsAsync(
                    history,
                    new GigaChatPromptExecutionSettings
@@ -170,54 +203,20 @@ await foreach (var chunk in chat.GetStreamingChatMessageContentsAsync(
 }
 ```
 
-## GigaChatPromptExecutionSettings
-
-`GigaChatPromptExecutionSettings` расширяет стандартные `PromptExecutionSettings`
-полями GigaChat:
-
-| Свойство | Назначение |
-| --- | --- |
-| `ModelId` | Модель для конкретного Semantic Kernel вызова. |
-| `Temperature` | Степень вариативности ответа. |
-| `TopP` | Nucleus sampling. |
-| `MaxTokens` | Максимальное число completion tokens. |
-| `RepetitionPenalty` | Штраф за повторения. |
-| `ProfanityCheck` | Включение или отключение фильтрации ненормативной лексики. |
-| `Flags` | Дополнительные GigaChat feature flags. |
-| `ReasoningEffort` | Уровень reasoning effort, если поддерживается выбранной моделью. |
-| `Headers` | Per-call `GigaChatRequestHeaders`. |
-| `AdditionalFields` | Дополнительные поля JSON payload, например `response_format`. |
-
-Пример:
-
-```csharp
-var settings = new GigaChatPromptExecutionSettings
-{
-    ModelId = "GigaChat-Pro",
-    Temperature = 0.2,
-    TopP = 0.9,
-    MaxTokens = 512,
-    RepetitionPenalty = 1.05,
-    ProfanityCheck = true,
-    Headers = new GigaChatRequestHeaders
-    {
-        RequestId = Guid.NewGuid().ToString("N"),
-        SessionId = "semantic-kernel-demo"
-    }
-};
-```
+Если включен `FunctionChoiceBehavior.Auto()`, preview-адаптер выполняет tool loop
+через обычный chat completion и возвращает финальный ответ как streaming content.
+Так streaming API остается совместимым с agent/tool сценариями.
 
 ## Structured output
 
-GigaChat поддерживает structured output через `response_format`. В Semantic Kernel
-адаптере это передается как provider-specific поле через `AdditionalFields`.
+GigaChat structured output передается через provider-specific поле
+`response_format` в `AdditionalFields`.
 
 ```csharp
 using System.ComponentModel;
 using System.Text.Json;
 using GigaChat.Net.Models;
 using GigaChat.Net.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
 
 var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
 {
@@ -241,7 +240,7 @@ var result = await chat.GetChatMessageContentsAsync(
 var plan = JsonSerializer.Deserialize<ReleasePlan>(result[0].Content!, jsonOptions);
 
 /// <summary>
-/// Structured release plan returned by GigaChat.
+/// Structured release plan returned by GigaChat through Semantic Kernel response_format.
 /// </summary>
 public sealed record ReleasePlan
 {
@@ -265,34 +264,54 @@ public sealed record ReleasePlan
 }
 ```
 
-`JsonSchemaResponseFormat.FromType<T>()` строит JSON Schema из C# DTO. Атрибут
-`Description` попадает в schema description и помогает модели вернуть более точный JSON.
+`JsonSchemaResponseFormat.FromType<T>()` строит JSON Schema из C# DTO. XML
+`<summary>` и `DescriptionAttribute` помогают держать схему понятной людям и модели.
 
-## Per-call headers
+## GigaChatPromptExecutionSettings
 
-Для передачи request/session/client metadata в конкретный вызов используйте
-`GigaChatRequestHeaders`:
+`GigaChatPromptExecutionSettings` расширяет стандартные `PromptExecutionSettings`.
+
+| Свойство | Назначение |
+| --- | --- |
+| `ModelId` | Модель для конкретного SK вызова. |
+| `Temperature` | Степень вариативности ответа. |
+| `TopP` | Nucleus sampling. |
+| `MaxTokens` | Максимальное число completion tokens. |
+| `RepetitionPenalty` | Штраф за повторения. |
+| `ProfanityCheck` | Фильтрация ненормативной лексики. |
+| `Flags` | Дополнительные GigaChat feature flags. |
+| `ReasoningEffort` | Reasoning effort, если поддерживается моделью. |
+| `Headers` | Per-call `GigaChatRequestHeaders`. |
+| `FunctionChoiceBehavior` | SK function/tool choice behavior. |
+| `MaxToolCalls` | Лимит auto tool calls, default `8`. |
+| `AdditionalFields` | Дополнительные поля JSON payload, например `response_format`. |
 
 ```csharp
-var response = await chat.GetChatMessageContentsAsync(
-    history,
-    new GigaChatPromptExecutionSettings
+var settings = new GigaChatPromptExecutionSettings
+{
+    ModelId = "GigaChat-Pro",
+    Temperature = 0.2,
+    TopP = 0.9,
+    MaxTokens = 512,
+    RepetitionPenalty = 1.05,
+    ProfanityCheck = true,
+    Headers = new GigaChatRequestHeaders
     {
-        Headers = new GigaChatRequestHeaders
-        {
-            RequestId = "request-for-this-call",
-            SessionId = "session-id",
-            ClientId = "client-id"
-        }
-    });
+        RequestId = Guid.NewGuid().ToString("N"),
+        SessionId = "semantic-kernel-demo"
+    }
+};
 ```
 
-## Ограничения preview
+## Preview limitations
 
 - Адаптер покрывает chat completion и streaming через `IChatCompletionService`.
+- `FunctionChoiceBehavior.Auto()` поддержан для Kernel plugins/tools.
+- Streaming + tools в preview работает через buffered fallback: выполняется tool loop,
+  затем возвращается финальный streaming content.
+- Поддерживаются text content, `FunctionCallContent` и `FunctionResultContent`.
+  Multimodal SK items пока явно отклоняются.
 - GigaChat-specific возможности передаются через `GigaChatPromptExecutionSettings`.
-- Автоматический вызов Semantic Kernel plugins через `FunctionChoiceBehavior.Auto()`
-  не включен в первый preview адаптера.
 - Для прямых SDK-возможностей вроде files, assistants, embeddings, token count и
   `ChatParse<T>()` используйте `IGigaChatClient` из базового пакета `GigaChat.Net`.
 
@@ -301,11 +320,11 @@ var response = await chat.GetChatMessageContentsAsync(
 Расширенный пример находится в репозитории:
 
 ```bash
-dotnet run --project examples/GigaChat.SemanticKernel.Example/GigaChat.SemanticKernel.Example.csproj
+dotnet run --project examples/GigaChat.SemanticKernel.Example/GigaChat.SemanticKernel.Example.csproj -- "Составь чеклист релиза SDK"
 ```
 
-Пример показывает chat completion, streaming, agent, structured output и несколько
-SDK probes.
+Пример показывает chat completion, streaming, structured output, plugins/tools,
+`ChatCompletionAgent` и несколько прямых SDK probes.
 
 ## Документация
 
