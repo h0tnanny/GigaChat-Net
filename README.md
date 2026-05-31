@@ -314,6 +314,13 @@ await foreach (var response in model.GenerateAsync(ChatRequest.ToChatRequest("П
 Provider поддерживает streaming, embeddings, token counting, GigaChat tools, JSON schema
 structured output и file helpers.
 
+Полный консольный пример находится в
+[`examples/LangChain.GigaChat.Example`](examples/LangChain.GigaChat.Example):
+
+```bash
+dotnet run --project examples/LangChain.GigaChat.Example -- --dry-run
+```
+
 ### Embeddings
 
 Генерация векторных представлений текста:

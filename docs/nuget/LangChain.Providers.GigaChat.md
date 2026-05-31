@@ -90,3 +90,5 @@ var image = await provider.GetImageAsync(file.Id);
 ```
 
 Full repository documentation: https://github.com/h0tnanny/GigaChat-Net
+
+Repository example project: `examples/LangChain.GigaChat.Example`.

@@ -2,6 +2,7 @@
   <Folder Name="/examples/">
     <Project Path="examples/GigaChat.AspNetCore.Example/GigaChat.AspNetCore.Example.csproj" />
     <Project Path="examples/GigaChat.Example/GigaChat.Example.csproj" />
+    <Project Path="examples/LangChain.GigaChat.Example/LangChain.GigaChat.Example.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj" />
