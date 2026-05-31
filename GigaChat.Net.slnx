@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/examples/">
+    <Project Path="examples/GigaChat.AspNetCore.Example/GigaChat.AspNetCore.Example.csproj" />
+    <Project Path="examples/GigaChat.Example/GigaChat.Example.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj" />
+    <Project Path="src/GigaChat.Net/GigaChat.Net.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GigaChat.Net.Tests/GigaChat.Net.Tests.csproj" />
+  </Folder>
+</Solution>
