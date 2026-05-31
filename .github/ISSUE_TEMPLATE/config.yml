@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: GigaChat official docs
+    url: https://developers.sber.ru/docs/ru/gigachat/api/main
+    about: Check the upstream API documentation for service behavior and platform limits.

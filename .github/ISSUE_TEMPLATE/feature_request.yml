@@ -1,0 +1,34 @@
+name: Feature request
+description: Suggest a new capability or API improvement.
+title: "[Feature]: "
+labels:
+  - type:feature
+body:
+  - type: input
+    id: package
+    attributes:
+      label: Package
+      placeholder: GigaChat.Net or GigaChat.Net.AspNetCore
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What are you trying to build, and what is missing today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API
+      description: Show the API you would like to use.
+      render: csharp
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false

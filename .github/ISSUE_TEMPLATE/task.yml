@@ -1,0 +1,28 @@
+name: Task
+description: Track maintenance, docs, CI, release, or project work.
+title: "[Task]: "
+labels:
+  - type:task
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should be true when this task is complete?
+    validations:
+      required: true
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Add concrete steps if known.
+      value: |
+        - [ ] 
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+    validations:
+      required: false

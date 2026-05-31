@@ -7,15 +7,17 @@
 
     <!-- NuGet Package Metadata -->
     <PackageId>GigaChat.Net.AspNetCore</PackageId>
-    <Version>1.0.0</Version>
+    <Version>0.1.0-preview.1</Version>
     <Authors>GigaChat.Net Contributors</Authors>
     <Description>ASP.NET Core dependency injection and request context extensions for GigaChat.Net.</Description>
     <PackageTags>gigachat;aspnetcore;dependency-injection;ai;llm;sber;extensions</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <RepositoryUrl>https://github.com/yourusername/GigaChat-Net</RepositoryUrl>
+    <RepositoryUrl>https://github.com/h0tnanny/GigaChat-Net</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageProjectUrl>https://github.com/yourusername/GigaChat-Net</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/h0tnanny/GigaChat-Net</PackageProjectUrl>
+    <PackageReleaseNotes>Initial preview release of ASP.NET Core extensions for GigaChat.Net.</PackageReleaseNotes>
 
     <!-- Symbol and Source Link -->
     <IncludeSymbols>true</IncludeSymbols>
@@ -31,7 +33,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\GigaChat.Net\GigaChat.Net.csproj" />
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\docs\nuget\GigaChat.Net.AspNetCore.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
 </Project>

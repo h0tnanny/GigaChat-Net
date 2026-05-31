@@ -1,0 +1,74 @@
+name: Publish Preview NuGet Packages
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NUGET_SOURCE: https://api.nuget.org/v3/index.json
+  PACKAGE_VERSION: 0.1.0-preview.${{ github.run_number }}.${{ github.run_attempt }}
+
+jobs:
+  publish-preview:
+    name: Publish preview packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Validate NuGet API key
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "NUGET_API_KEY repository secret is required to publish preview packages." >&2
+            exit 1
+          fi
+
+      - name: Restore
+        run: dotnet restore GigaChat.Net.slnx
+
+      - name: Build
+        run: dotnet build GigaChat.Net.slnx --configuration Release --no-restore /p:ContinuousIntegrationBuild=true
+
+      - name: Test
+        run: dotnet test GigaChat.Net.slnx --configuration Release --no-build
+
+      - name: Pack preview packages
+        run: |
+          dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=$PACKAGE_VERSION
+          dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=$PACKAGE_VERSION
+
+      - name: Publish packages to NuGet
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          shopt -s nullglob
+          packages=(artifacts/packages/*.nupkg)
+          symbols=(artifacts/packages/*.snupkg)
+
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "No .nupkg files were produced." >&2
+            exit 1
+          fi
+
+          for package in "${packages[@]}"; do
+            dotnet nuget push "$package" --api-key "$NUGET_API_KEY" --source "$NUGET_SOURCE" --skip-duplicate
+          done
+
+          for symbol_package in "${symbols[@]}"; do
+            dotnet nuget push "$symbol_package" --api-key "$NUGET_API_KEY" --source "$NUGET_SOURCE" --skip-duplicate
+          done

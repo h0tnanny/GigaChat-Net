@@ -1,0 +1,59 @@
+name: Bug report
+description: Report a reproducible problem in GigaChat.Net.
+title: "[Bug]: "
+labels:
+  - type:bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Please include enough detail to reproduce it without access to your secrets.
+  - type: input
+    id: package
+    attributes:
+      label: Package
+      description: Which package is affected?
+      placeholder: GigaChat.Net or GigaChat.Net.AspNetCore
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: 0.1.0-preview.12.1
+    validations:
+      required: true
+  - type: input
+    id: dotnet
+    attributes:
+      label: .NET version
+      placeholder: 10.0.x
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Include code, request shape, or test case. Do not include credentials or access tokens.
+      render: csharp
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or exception
+      render: text
+    validations:
+      required: false

@@ -31,6 +31,19 @@ dotnet add package GigaChat.Net.AspNetCore
 
 **Требования:** .NET 10.0+
 
+## Пакеты и репозиторий
+
+Проект ведется как один monorepo с двумя NuGet-пакетами:
+
+| Пакет | Когда нужен |
+|-------|-------------|
+| `GigaChat.Net` | Базовый SDK: клиент, модели, auth, streaming, embeddings, files, retry. |
+| `GigaChat.Net.AspNetCore` | DI-регистрация, middleware и request context для ASP.NET Core. |
+
+Такой формат позволяет выпускать совместимые версии SDK и ASP.NET Core расширения из одного CI.
+Подробная схема GitHub Project, preview/release публикации и NuGet secrets описана в
+[docs/PUBLISHING.md](docs/PUBLISHING.md).
+
 ## Быстрый старт
 
 ### Получение ключа авторизации
@@ -659,6 +672,15 @@ foreach (var entry in balance.BalanceEntries)
 - [Available Models](https://developers.sber.ru/docs/ru/gigachat/models)
 - [Early Access Models](https://developers.sber.ru/docs/ru/gigachat/models/preview-models)
 - [Pricing](https://developers.sber.ru/docs/ru/gigachat/api/tariffs)
+
+## Разработка и публикация
+
+- Pull requests проверяются workflow `CI`: restore, build, test и pack обоих NuGet-пакетов.
+- Push в `master` публикует preview версии вида `0.1.0-preview.<run>.<attempt>`.
+- GitHub Release или ручной запуск release workflow публикует стабильную SemVer версию.
+- Для публикации нужен GitHub Actions secret `NUGET_API_KEY`.
+
+Полная инструкция: [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## Связанные проекты
 
