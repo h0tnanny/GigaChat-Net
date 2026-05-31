@@ -34,6 +34,13 @@ bld/
 .idea/
 *.sln.iml
 
+# Local secrets and machine-specific configuration
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+appsettings.Local.json
+
 # NuGet Packages
 *.nupkg
 *.snupkg
