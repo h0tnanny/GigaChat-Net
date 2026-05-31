@@ -105,6 +105,12 @@ Code review должен проверить:
 - баг действительно воспроизведен тестом или покрыт regression test;
 - публичный API и package metadata не ломают пользователей без необходимости.
 
+Пока репозиторий ведется одним владельцем и нет второго contributor с правом review,
+обязательный GitHub approving review в branch protection отключен. Self-review, PR checklist,
+`Build, test, pack` и `Validate PR policy` остаются обязательными. Когда появится второй
+maintainer или постоянный contributor, required approving review нужно включить обратно
+для `develop` и `master`.
+
 ## Preview
 
 Preview пакеты публикуются из ветки `develop`.
