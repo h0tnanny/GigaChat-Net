@@ -36,6 +36,7 @@ GigaChat, не заставляя приложение работать напр
 
 ```bash
 dotnet add package GigaChat.Net.SemanticKernel
+dotnet add package Microsoft.SemanticKernel
 ```
 
 Для `ChatCompletionAgent` добавьте пакет агентов Semantic Kernel:

@@ -109,7 +109,15 @@ builder.Services.AddGigaChat(
 
 Если ASP.NET Core приложение использует Semantic Kernel, зарегистрируйте `Kernel`
 поверх уже настроенного `IGigaChatClient`. Для этого добавьте пакет
-`GigaChat.Net.SemanticKernel`.
+`GigaChat.Net.SemanticKernel`. Если приложение напрямую использует типы
+`Kernel`, `IChatCompletionService` или `ChatHistory`, добавьте явную ссылку на
+`Microsoft.SemanticKernel`, чтобы IDE и build tooling видели эти типы без
+опоры на транзитивные зависимости.
+
+```bash
+dotnet add package GigaChat.Net.SemanticKernel
+dotnet add package Microsoft.SemanticKernel
+```
 
 ```csharp
 using GigaChat.Net;
