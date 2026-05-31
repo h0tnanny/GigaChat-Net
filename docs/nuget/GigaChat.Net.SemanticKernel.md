@@ -47,7 +47,61 @@ dotnet add package Microsoft.SemanticKernel.Agents.Core
 
 Пакет зависит от `GigaChat.Net` и рассчитан на .NET 10.0 или новее.
 
-## Быстрый старт
+## Быстрый старт с DI
+
+Если приложение уже зарегистрировало `IGigaChatClient`, например через
+`GigaChat.Net.AspNetCore` `AddGigaChat(...)`, добавьте Semantic Kernel поверх
+этого SDK-клиента:
+
+```csharp
+using GigaChat.Net.AspNetCore;
+using GigaChat.Net.SemanticKernel;
+using Microsoft.Extensions.Options;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
+
+builder.Services.AddGigaChat(builder.Configuration);
+builder.Services.AddGigaChatSemanticKernel(options =>
+{
+    options.ModelIdFactory = provider => provider.GetRequiredService<IOptions<GigaChatOptions>>().Value.Model;
+    options.EndpointFactory = provider => provider.GetRequiredService<IOptions<GigaChatOptions>>().Value.BaseUrl;
+});
+
+app.MapPost("/chat", async (
+    ChatRequest request,
+    IChatCompletionService chat,
+    CancellationToken cancellationToken) =>
+{
+    ChatHistory history =
+    [
+        new ChatMessageContent(AuthorRole.System, "Ты полезный ассистент."),
+        new ChatMessageContent(AuthorRole.User, request.Message)
+    ];
+
+    var response = await chat.GetChatMessageContentsAsync(
+        history,
+        new GigaChatPromptExecutionSettings { Temperature = 0.2 },
+        cancellationToken: cancellationToken);
+
+    return Results.Ok(response[0].Content);
+});
+```
+
+Для plugins/tools донастройте созданный `Kernel` в том же вызове:
+
+```csharp
+builder.Services.AddGigaChatSemanticKernel(options =>
+{
+    options.ModelIdFactory = provider => provider.GetRequiredService<IOptions<GigaChatOptions>>().Value.Model;
+    options.ConfigureKernel = (_, kernel) =>
+        kernel.Plugins.AddFromType<ReleasePlugin>("release");
+});
+```
+
+Если нужен keyed chat service, задайте `options.ServiceId`. По умолчанию
+регистрируются обычные `Kernel` и `IChatCompletionService`.
+
+## Быстрый старт без DI
 
 ```csharp
 using GigaChat.Net;

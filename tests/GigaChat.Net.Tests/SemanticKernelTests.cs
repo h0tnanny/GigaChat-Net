@@ -530,6 +530,57 @@ public class SemanticKernelTests
     }
 
     [Fact]
+    public void ServiceCollectionRegistersSemanticKernelFromExistingGigaChatClient()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(new KernelRegistrationConfig("GigaChat-Pro", TestData.BaseUrl));
+        services.AddSingleton<IGigaChatClient>(_ => new GigaChatClient(
+            new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl },
+            new RecordingHandler()));
+
+        services.AddGigaChatSemanticKernel(options =>
+        {
+            options.ModelIdFactory = provider => provider.GetRequiredService<KernelRegistrationConfig>().ModelId;
+            options.EndpointFactory = provider => provider.GetRequiredService<KernelRegistrationConfig>().Endpoint;
+            options.ConfigureKernel = (_, kernel) =>
+                kernel.Plugins.AddFromObject(new WeatherPlugin(), "weather");
+        });
+
+        using var provider = services.BuildServiceProvider();
+
+        var kernel = provider.GetRequiredService<Kernel>();
+        var service = provider.GetRequiredService<IChatCompletionService>();
+
+        Assert.IsType<GigaChatChatCompletionService>(service);
+        Assert.Equal("GigaChat-Pro", service.Attributes["ModelId"]);
+        Assert.Equal(TestData.BaseUrl, service.Attributes["Endpoint"]);
+        Assert.Contains(kernel.Plugins, plugin => plugin.Name == "weather");
+    }
+
+    [Fact]
+    public void ServiceCollectionRegistersKeyedSemanticKernelChatCompletionService()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IGigaChatClient>(_ => new GigaChatClient(
+            new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl },
+            new RecordingHandler()));
+
+        services.AddGigaChatSemanticKernel(options =>
+        {
+            options.ServiceId = "gigachat";
+            options.ModelId = "GigaChat-Max";
+        });
+
+        using var provider = services.BuildServiceProvider();
+
+        var service = provider.GetRequiredKeyedService<IChatCompletionService>("gigachat");
+
+        Assert.IsType<GigaChatChatCompletionService>(service);
+        Assert.Equal("GigaChat-Max", service.Attributes["ModelId"]);
+        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IChatCompletionService>());
+    }
+
+    [Fact]
     public void GenericPromptExecutionSettingsExtensionDataMapsToGigaChatSettings()
     {
         var settings = GigaChatPromptExecutionSettings.FromExecutionSettings(new PromptExecutionSettings
@@ -559,4 +610,6 @@ public class SemanticKernelTests
         [Description("Gets current weather for a city.")]
         public string GetWeather([Description("City name.")] string city) => $"{city} is 22 C";
     }
+
+    private sealed record KernelRegistrationConfig(string ModelId, string Endpoint);
 }

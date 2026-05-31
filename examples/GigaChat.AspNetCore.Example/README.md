@@ -3,7 +3,7 @@
 ASP.NET Core пример показывает два уровня интеграции:
 
 - `GigaChat.Net.AspNetCore`: DI-регистрация `IGigaChatClient`, request context middleware, per-request headers;
-- `GigaChat.Net.SemanticKernel`: `IChatCompletionService`, streaming, structured output, Semantic Kernel plugins/tools и `ChatCompletionAgent`.
+- `GigaChat.Net.SemanticKernel`: `AddGigaChatSemanticKernel(...)`, `IChatCompletionService`, streaming, structured output, Semantic Kernel plugins/tools и `ChatCompletionAgent`.
 
 ## Configuration
 
@@ -91,6 +91,21 @@ curl -X POST http://localhost:5000/semantic-kernel/agent \
 ```
 
 Agent использует тот же Kernel, GigaChat-backed `IChatCompletionService` и локальный `ReleasePlugin`.
+
+## Semantic Kernel registration
+
+Пример использует существующую SDK-регистрацию и добавляет Semantic Kernel поверх нее:
+
+```csharp
+builder.Services.AddGigaChat(builder.Configuration);
+builder.Services.AddGigaChatSemanticKernel(options =>
+{
+    options.ModelIdFactory = provider => provider.GetRequiredService<IOptions<GigaChatOptions>>().Value.Model;
+    options.EndpointFactory = provider => provider.GetRequiredService<IOptions<GigaChatOptions>>().Value.BaseUrl;
+    options.ConfigureKernel = (_, kernel) =>
+        kernel.Plugins.AddFromObject(new ReleasePlugin("GigaChat"), "release");
+});
+```
 
 ## Request context
 

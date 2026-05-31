@@ -124,25 +124,14 @@ using GigaChat.Net;
 using GigaChat.Net.AspNetCore;
 using GigaChat.Net.SemanticKernel;
 using Microsoft.Extensions.Options;
-using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
 builder.Services.AddGigaChat(builder.Configuration);
-
-builder.Services.AddSingleton(provider =>
+builder.Services.AddGigaChatSemanticKernel(options =>
 {
-    var client = provider.GetRequiredService<IGigaChatClient>();
-    var options = provider.GetRequiredService<IOptions<GigaChatOptions>>().Value;
-
-    return Kernel.CreateBuilder()
-        .AddGigaChatChatCompletion(client, modelId: options.Model, endpoint: options.BaseUrl)
-        .Build();
+    options.ModelIdFactory = provider => provider.GetRequiredService<IOptions<GigaChatOptions>>().Value.Model;
+    options.EndpointFactory = provider => provider.GetRequiredService<IOptions<GigaChatOptions>>().Value.BaseUrl;
 });
-
-builder.Services.AddSingleton(provider => provider
-    .GetRequiredService<Kernel>()
-    .Services
-    .GetRequiredService<IChatCompletionService>());
 
 app.MapPost("/semantic-kernel/chat", async (
     ChatRequest request,

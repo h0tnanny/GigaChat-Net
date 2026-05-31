@@ -13,11 +13,16 @@ using Microsoft.SemanticKernel.ChatCompletion;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddGigaChat(builder.Configuration);
-builder.Services.AddSingleton(CreateKernel);
-builder.Services.AddSingleton(provider => provider
-    .GetRequiredService<Kernel>()
-    .Services
-    .GetRequiredService<IChatCompletionService>());
+builder.Services.AddGigaChatSemanticKernel(options =>
+{
+    options.ModelIdFactory = provider => provider.GetRequiredService<IOptions<GigaChatOptions>>().Value.Model;
+    options.EndpointFactory = provider => provider.GetRequiredService<IOptions<GigaChatOptions>>().Value.BaseUrl;
+    options.ConfigureKernel = (provider, kernel) =>
+    {
+        var model = provider.GetRequiredService<IOptions<GigaChatOptions>>().Value.Model ?? "GigaChat";
+        kernel.Plugins.AddFromObject(new ReleasePlugin(model), "release");
+    };
+});
 
 // Optional: context values can come from headers, query, claims, route values, or your own services.
 // With AllowModelOverrideFromHeader enabled, X-GigaChat-Model is copied automatically.
@@ -241,21 +246,6 @@ app.MapPost("/semantic-kernel/agent", async (
 });
 
 app.Run();
-
-static Kernel CreateKernel(IServiceProvider provider)
-{
-    var client = provider.GetRequiredService<IGigaChatClient>();
-    var options = provider.GetRequiredService<IOptions<GigaChatOptions>>().Value;
-    var kernel = Kernel.CreateBuilder()
-        .AddGigaChatChatCompletion(
-            client,
-            modelId: options.Model,
-            endpoint: options.BaseUrl)
-        .Build();
-
-    kernel.Plugins.AddFromObject(new ReleasePlugin(options.Model ?? "GigaChat"), "release");
-    return kernel;
-}
 
 static ChatHistory CreateHistory(string system, string user) =>
 [
