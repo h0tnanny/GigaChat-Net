@@ -2,6 +2,18 @@
 
 `GigaChat.Net.AspNetCore` - ASP.NET Core расширения для `GigaChat.Net`. Пакет добавляет DI-регистрацию, request context middleware и механизм передачи per-request/per-call metadata в исходящие вызовы GigaChat.
 
+## Статус проекта
+
+Этот репозиторий ведется ИИ под контролем владельца проекта. Перенос SDK с Python библиотеки
+`gigachat` на .NET также был выполнен ИИ.
+
+Если при использовании SDK или ASP.NET Core интеграции вы обнаружите баг, несовместимость
+или неточность документации, пожалуйста, создайте GitHub Issue:
+
+https://github.com/h0tnanny/GigaChat-Net/issues
+
+Такие обращения будут приняты в работу и использованы для улучшения SDK.
+
 ## Установка
 
 ```bash
