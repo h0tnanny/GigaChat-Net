@@ -202,7 +202,7 @@ public sealed partial class GigaChatClient : IGigaChatClient, IDisposable
 
     private Uri CreateRequestUri(string path)
     {
-        return Uri.TryCreate(path, UriKind.Absolute, out var uri)
+        return !Path.IsPathRooted(path) && Uri.TryCreate(path, UriKind.Absolute, out var uri)
             ? uri
             : new Uri(_baseUri, path.TrimStart('/'));
     }
