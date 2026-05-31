@@ -422,6 +422,77 @@ public class SemanticKernelTests
     }
 
     [Fact]
+    public async Task ChatCompletionServiceStreamsFinalMessageAfterSemanticKernelFunctionCalls()
+    {
+        var handler = new RecordingHandler();
+        handler.QueueJson("""
+        {
+          "choices": [
+            {
+              "message": {
+                "role": "assistant",
+                "content": "",
+                "function_call": {
+                  "name": "weather_get_weather",
+                  "arguments": { "city": "Tokyo" }
+                }
+              },
+              "index": 0,
+              "finish_reason": "function_call"
+            }
+          ],
+          "created": 1,
+          "model": "GigaChat",
+          "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 },
+          "object": "chat.completion"
+        }
+        """);
+        handler.QueueJson("""
+        {
+          "choices": [
+            {
+              "message": {
+                "role": "assistant",
+                "content": "Tokyo is 22 C"
+              },
+              "index": 0,
+              "finish_reason": "stop"
+            }
+          ],
+          "created": 2,
+          "model": "GigaChat",
+          "usage": { "prompt_tokens": 2, "completion_tokens": 2, "total_tokens": 4 },
+          "object": "chat.completion"
+        }
+        """);
+        using var client = new GigaChatClient(
+            new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl },
+            handler);
+        var service = new GigaChatChatCompletionService(client);
+        var kernel = Kernel.CreateBuilder().Build();
+        kernel.Plugins.AddFromObject(new WeatherPlugin(), "weather");
+        var chunks = new List<StreamingChatMessageContent>();
+
+        await foreach (var chunk in service.GetStreamingChatMessageContentsAsync(
+                           [new ChatMessageContent(AuthorRole.User, "weather in Tokyo")],
+                           new GigaChatPromptExecutionSettings
+                           {
+                               FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
+                           },
+                           kernel))
+        {
+            chunks.Add(chunk);
+        }
+
+        var finalChunk = Assert.Single(chunks);
+        Assert.Equal(AuthorRole.Assistant, finalChunk.Role);
+        Assert.Equal("Tokyo is 22 C", finalChunk.Content);
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.NotEqual("text/event-stream", handler.Requests[0].Accept);
+        Assert.NotEqual("text/event-stream", handler.Requests[1].Accept);
+    }
+
+    [Fact]
     public void KernelBuilderRegistersGigaChatChatCompletionService()
     {
         var handler = new RecordingHandler();

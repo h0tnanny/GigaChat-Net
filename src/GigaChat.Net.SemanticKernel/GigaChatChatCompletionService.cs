@@ -77,6 +77,27 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
 
         var settings = GigaChatPromptExecutionSettings.FromExecutionSettings(executionSettings);
         var functionMap = GigaChatKernelFunctionMapper.CreateFunctionMap(chatHistory, settings, kernel);
+        if (ShouldAutoInvokeFunctions(functionMap))
+        {
+            var messages = await GetChatMessageContentsWithToolsAsync(
+                chatHistory,
+                settings,
+                kernel,
+                cancellationToken);
+
+            foreach (var message in messages)
+            {
+                yield return new StreamingChatMessageContent(
+                    message.Role,
+                    message.Content,
+                    innerContent: message.InnerContent,
+                    modelId: message.ModelId,
+                    metadata: message.Metadata);
+            }
+
+            yield break;
+        }
+
         var chat = CreateChat(chatHistory, settings, functionMap);
 
         await foreach (var chunk in _client.StreamAsync(chat, settings.Headers, cancellationToken))
