@@ -676,9 +676,10 @@ foreach (var entry in balance.BalanceEntries)
 ## Разработка и публикация
 
 - Pull requests проверяются workflow `CI`: restore, build, test и pack обоих NuGet-пакетов.
-- Push в `master` публикует preview версии вида `0.1.0-preview.<run>.<attempt>`.
-- GitHub Release или ручной запуск release workflow публикует стабильную SemVer версию.
+- Push в `master` публикует preview версии вида `0.1.0-preview.<run>.<attempt>` в NuGet.org и GitHub Packages.
+- GitHub Release или ручной запуск release workflow публикует стабильную SemVer версию в NuGet.org и GitHub Packages.
 - Для публикации нужен GitHub Actions secret `NUGET_API_KEY`.
+- GitHub Packages не зеркалирует NuGet.org автоматически; CI отдельно публикует тот же `.nupkg`, чтобы пакет появился во вкладке `Packages`.
 
 Полная инструкция: [docs/PUBLISHING.md](docs/PUBLISHING.md).
 

@@ -8,11 +8,13 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 env:
   GIGACHAT_BASE_URL: https://example.test/api/v1
   GIGACHAT_AUTH_URL: https://auth.example.test/oauth
   NUGET_SOURCE: https://api.nuget.org/v3/index.json
+  GITHUB_PACKAGES_SOURCE: https://nuget.pkg.github.com/h0tnanny/index.json
   PACKAGE_VERSION: 0.1.0-preview.${{ github.run_number }}.${{ github.run_attempt }}
 
 jobs:
@@ -73,4 +75,24 @@ jobs:
 
           for symbol_package in "${symbols[@]}"; do
             dotnet nuget push "$symbol_package" --api-key "$NUGET_API_KEY" --source "$NUGET_SOURCE" --skip-duplicate
+          done
+
+      - name: Publish packages to GitHub Packages
+        run: |
+          dotnet nuget add source "$GITHUB_PACKAGES_SOURCE" \
+            --name github \
+            --username "${{ github.actor }}" \
+            --password "${{ secrets.GITHUB_TOKEN }}" \
+            --store-password-in-clear-text
+
+          shopt -s nullglob
+          packages=(artifacts/packages/*.nupkg)
+
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "No .nupkg files were produced." >&2
+            exit 1
+          fi
+
+          for package in "${packages[@]}"; do
+            dotnet nuget push "$package" --api-key "${{ secrets.GITHUB_TOKEN }}" --source "github" --skip-duplicate
           done

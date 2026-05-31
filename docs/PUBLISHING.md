@@ -2,6 +2,8 @@
 
 Этот документ описывает, как вести `GigaChat.Net` как публичный SDK: где хранить код, как выпускать preview и release NuGet-пакеты, как работать с GitHub Issues/Projects и что нужно настроить перед первой публикацией.
 
+NuGet.org остается основным публичным registry для пользователей .NET. GitHub Packages используется как дополнительный registry, чтобы пакеты были видны во вкладке `Packages` репозитория GitHub и могли устанавливаться из GitHub Package Registry.
+
 ## Один репозиторий или два
 
 Для текущего состояния правильнее оставить один репозиторий `h0tnanny/GigaChat-Net` и выпускать из него два NuGet-пакета:
@@ -33,8 +35,8 @@ NuGet README должен быть короче root README: пользоват�
 В репозитории настроены:
 
 - `.github/workflows/ci.yml` - сборка, тесты и упаковка на pull request, push в `master` и ручной запуск.
-- `.github/workflows/publish-preview.yml` - публикация preview пакетов на каждый push в `master`.
-- `.github/workflows/publish-release.yml` - публикация release пакетов при публикации GitHub Release или ручном запуске.
+- `.github/workflows/publish-preview.yml` - публикация preview пакетов на каждый push в `master` в NuGet.org и GitHub Packages.
+- `.github/workflows/publish-release.yml` - публикация release пакетов при публикации GitHub Release или ручном запуске в NuGet.org и GitHub Packages.
 - `.github/ISSUE_TEMPLATE/bug_report.yml` - шаблон bug report.
 - `.github/ISSUE_TEMPLATE/feature_request.yml` - шаблон feature request.
 - `.github/ISSUE_TEMPLATE/task.yml` - шаблон task.
@@ -68,6 +70,20 @@ NUGET_API_KEY
 6. Вставьте значение API key.
 
 Секрет нельзя хранить в репозитории, README, issue или workflow logs.
+
+Для публикации в GitHub Packages отдельный secret не нужен. Workflow использует встроенный `${{ secrets.GITHUB_TOKEN }}` и право:
+
+```yaml
+permissions:
+  contents: read
+  packages: write
+```
+
+Адрес GitHub Packages NuGet registry для этого аккаунта:
+
+```text
+https://nuget.pkg.github.com/h0tnanny/index.json
+```
 
 ## CI
 
@@ -113,6 +129,9 @@ Preview workflow:
 4. Запускает тесты.
 5. Упаковывает оба проекта.
 6. Публикует `.nupkg` и `.snupkg` в nuget.org.
+7. Публикует `.nupkg` в GitHub Packages.
+
+GitHub Packages не является зеркалом NuGet.org. Даже если NuGet пакет содержит `RepositoryUrl` и связан с GitHub репозиторием, вкладка GitHub `Packages` покажет пакет только после отдельной публикации в GitHub Packages. Поэтому workflow публикует один и тот же `.nupkg` в оба registry.
 
 Установка preview версии:
 
@@ -122,6 +141,21 @@ dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-preview.<run>.<attemp
 ```
 
 Preview пакеты подходят для проверки интеграции до стабильного релиза. Их не стоит считать контрактом совместимости.
+
+Установка preview из GitHub Packages обычно требует authenticated source:
+
+```bash
+dotnet nuget add source "https://nuget.pkg.github.com/h0tnanny/index.json" \
+  --name github \
+  --username "<github-user>" \
+  --password "<github-token>" \
+  --store-password-in-clear-text
+
+dotnet add package GigaChat.Net --version 0.1.0-preview.<run>.<attempt> --source github
+dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-preview.<run>.<attempt> --source github
+```
+
+Для обычных пользователей предпочтительнее установка из NuGet.org без дополнительного source.
 
 ## Release публикация
 
@@ -151,7 +185,7 @@ Release workflow принимает SemVer:
 1.2.3-preview.4
 ```
 
-Если версия уже опубликована в NuGet, перезаписать ее нельзя. Нужно выпустить новую версию.
+Если версия уже опубликована в NuGet.org или GitHub Packages, перезаписать ее нельзя. Нужно выпустить новую версию.
 
 ## Рекомендуемый релизный процесс
 
@@ -165,6 +199,7 @@ Release workflow принимает SemVer:
 8. Опубликовать GitHub Release.
 9. Дождаться `Publish Release NuGet Packages`.
 10. Проверить страницы пакетов на nuget.org.
+11. Проверить, что пакеты появились во вкладке `Packages` репозитория GitHub.
 
 ## Локальная проверка перед PR
 
@@ -228,7 +263,7 @@ Secret не создан или недоступен workflow. Создайте 
 
 `Package already exists`
 
-NuGet не позволяет перезаписывать опубликованную версию. Увеличьте version/tag.
+NuGet.org и GitHub Packages не позволяют перезаписывать опубликованную версию. Увеличьте version/tag.
 
 `No .nupkg files were produced`
 
@@ -240,7 +275,13 @@ NuGet не позволяет перезаписывать опубликова�
 
 `401 Unauthorized` при публикации
 
-Проверьте, что NuGet API key имеет scope `Push`, не истек и разрешает публикацию нужных package IDs.
+Для NuGet.org проверьте, что NuGet API key имеет scope `Push`, не истек и разрешает публикацию нужных package IDs.
+
+Для GitHub Packages проверьте, что workflow содержит `permissions: packages: write`, а публикация идет через `${{ secrets.GITHUB_TOKEN }}` или token с `write:packages`.
+
+Пакет появился на NuGet.org, но не появился в GitHub `Packages`
+
+NuGet.org не синхронизирует пакеты в GitHub Packages. Проверьте шаг `Publish packages to GitHub Packages` в workflow run. Если шаг не запускался или упал, версия должна быть опубликована в GitHub Packages отдельным push той же `.nupkg`.
 
 ## Полезные официальные ссылки
 
@@ -250,4 +291,6 @@ NuGet не позволяет перезаписывать опубликова�
 - NuGet package README: https://learn.microsoft.com/en-us/nuget/nuget-org/package-readme-on-nuget-org
 - GitHub Actions for .NET: https://docs.github.com/actions/automating-builds-and-tests/building-and-testing-net
 - GitHub Actions secrets: https://docs.github.com/en/actions/concepts/security/secrets
+- GitHub Packages with Actions: https://docs.github.com/packages/managing-github-packages-using-github-actions-workflows/publishing-and-installing-a-package-with-github-actions
+- GitHub Packages NuGet registry: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry
 - GitHub Projects: https://docs.github.com/issues/planning-and-tracking-with-projects/creating-projects/creating-a-project
