@@ -97,6 +97,169 @@ public class SemanticKernelTests
     }
 
     [Fact]
+    public async Task ChatCompletionServiceAutoInvokesSemanticKernelFunctions()
+    {
+        var handler = new RecordingHandler();
+        handler.QueueJson("""
+        {
+          "choices": [
+            {
+              "message": {
+                "role": "assistant",
+                "content": "",
+                "function_call": {
+                  "name": "weather_get_weather",
+                  "arguments": { "city": "Tokyo" }
+                }
+              },
+              "index": 0,
+              "finish_reason": "function_call"
+            }
+          ],
+          "created": 1,
+          "model": "GigaChat",
+          "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 },
+          "object": "chat.completion"
+        }
+        """);
+        handler.QueueJson("""
+        {
+          "choices": [
+            {
+              "message": {
+                "role": "assistant",
+                "content": "Tokyo is 22 C"
+              },
+              "index": 0,
+              "finish_reason": "stop"
+            }
+          ],
+          "created": 2,
+          "model": "GigaChat",
+          "usage": { "prompt_tokens": 2, "completion_tokens": 2, "total_tokens": 4 },
+          "object": "chat.completion"
+        }
+        """);
+        using var client = new GigaChatClient(
+            new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl },
+            handler);
+        var service = new GigaChatChatCompletionService(client);
+        var kernel = Kernel.CreateBuilder().Build();
+        kernel.Plugins.AddFromObject(new WeatherPlugin(), "weather");
+        ChatHistory history = [new ChatMessageContent(AuthorRole.User, "weather in Tokyo")];
+
+        var response = await service.GetChatMessageContentsAsync(
+            history,
+            new GigaChatPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
+            },
+            kernel);
+
+        Assert.Equal("Tokyo is 22 C", Assert.Single(response).Content);
+        Assert.Equal(2, handler.Requests.Count);
+
+        using var secondBody = JsonDocument.Parse(handler.Requests[1].Body!);
+        var messages = secondBody.RootElement.GetProperty("messages");
+        Assert.Equal("assistant", messages[1].GetProperty("role").GetString());
+        Assert.Equal("weather_get_weather", messages[1].GetProperty("function_call").GetProperty("name").GetString());
+        Assert.Equal("function", messages[2].GetProperty("role").GetString());
+        Assert.Equal("weather_get_weather", messages[2].GetProperty("name").GetString());
+        Assert.Equal("Tokyo is 22 C", messages[2].GetProperty("content").GetString());
+    }
+
+    [Fact]
+    public async Task ChatCompletionServiceRejectsUnknownSemanticKernelFunctionCall()
+    {
+        var handler = new RecordingHandler();
+        handler.QueueJson("""
+        {
+          "choices": [
+            {
+              "message": {
+                "role": "assistant",
+                "content": "",
+                "function_call": {
+                  "name": "unknown",
+                  "arguments": { }
+                }
+              },
+              "index": 0,
+              "finish_reason": "function_call"
+            }
+          ],
+          "created": 1,
+          "model": "GigaChat",
+          "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 },
+          "object": "chat.completion"
+        }
+        """);
+        using var client = new GigaChatClient(
+            new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl },
+            handler);
+        var service = new GigaChatChatCompletionService(client);
+        var kernel = Kernel.CreateBuilder().Build();
+        kernel.Plugins.AddFromObject(new WeatherPlugin(), "weather");
+
+        var exception = await Assert.ThrowsAsync<GigaChatException>(
+            () => service.GetChatMessageContentsAsync(
+                [new ChatMessageContent(AuthorRole.User, "call a tool")],
+                new GigaChatPromptExecutionSettings
+                {
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
+                },
+                kernel));
+
+        Assert.Contains("Unknown Semantic Kernel function call 'unknown'", exception.Message);
+    }
+
+    [Fact]
+    public async Task ChatCompletionServiceLimitsSemanticKernelFunctionCalls()
+    {
+        var handler = new RecordingHandler();
+        handler.QueueJson("""
+        {
+          "choices": [
+            {
+              "message": {
+                "role": "assistant",
+                "content": "",
+                "function_call": {
+                  "name": "weather_get_weather",
+                  "arguments": { "city": "Tokyo" }
+                }
+              },
+              "index": 0,
+              "finish_reason": "function_call"
+            }
+          ],
+          "created": 1,
+          "model": "GigaChat",
+          "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 },
+          "object": "chat.completion"
+        }
+        """);
+        using var client = new GigaChatClient(
+            new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl },
+            handler);
+        var service = new GigaChatChatCompletionService(client);
+        var kernel = Kernel.CreateBuilder().Build();
+        kernel.Plugins.AddFromObject(new WeatherPlugin(), "weather");
+
+        var exception = await Assert.ThrowsAsync<GigaChatException>(
+            () => service.GetChatMessageContentsAsync(
+                [new ChatMessageContent(AuthorRole.User, "call a tool")],
+                new GigaChatPromptExecutionSettings
+                {
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                    MaxToolCalls = 0
+                },
+                kernel));
+
+        Assert.Contains("exceeded the maximum of 0", exception.Message);
+    }
+
+    [Fact]
     public async Task ChatCompletionServiceOmitsAuthorNameExceptForFunctionMessages()
     {
         var handler = new RecordingHandler();
@@ -199,6 +362,7 @@ public class SemanticKernelTests
             {
                 ["temperature"] = 0.1,
                 ["max_tokens"] = 64,
+                ["max_tool_calls"] = 3,
                 ["flags"] = new[] { "debug" },
                 ["custom_field"] = "custom-value"
             }
@@ -207,6 +371,7 @@ public class SemanticKernelTests
         Assert.Equal("GigaChat-Max", settings.ModelId);
         Assert.Equal(0.1, settings.Temperature);
         Assert.Equal(64, settings.MaxTokens);
+        Assert.Equal(3, settings.MaxToolCalls);
         Assert.Equal("debug", Assert.Single(settings.Flags!));
         Assert.Equal("custom-value", settings.AdditionalFields!["custom_field"]);
     }

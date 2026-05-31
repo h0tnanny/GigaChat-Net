@@ -18,6 +18,7 @@ public sealed class GigaChatPromptExecutionSettings : PromptExecutionSettings
     private string? _reasoningEffort;
     private IReadOnlyDictionary<string, object?>? _additionalFields;
     private GigaChatRequestHeaders? _headers;
+    private int _maxToolCalls = 8;
 
     /// <summary>
     /// Gets or sets the sampling temperature.
@@ -145,6 +146,23 @@ public sealed class GigaChatPromptExecutionSettings : PromptExecutionSettings
         }
     }
 
+    /// <summary>
+    /// Gets or sets the maximum number of Semantic Kernel tool calls per chat completion.
+    /// </summary>
+    [JsonIgnore]
+    public int MaxToolCalls
+    {
+        get => _maxToolCalls;
+        set
+        {
+            ThrowIfFrozen();
+            if (value < 0)
+                throw new ArgumentOutOfRangeException(nameof(value), "Maximum tool calls cannot be negative.");
+
+            _maxToolCalls = value;
+        }
+    }
+
     /// <inheritdoc />
     public override PromptExecutionSettings Clone()
     {
@@ -166,7 +184,8 @@ public sealed class GigaChatPromptExecutionSettings : PromptExecutionSettings
             AdditionalFields = AdditionalFields is null
                 ? null
                 : new Dictionary<string, object?>(AdditionalFields, StringComparer.OrdinalIgnoreCase),
-            Headers = Headers
+            Headers = Headers,
+            MaxToolCalls = MaxToolCalls
         };
     }
 
@@ -219,6 +238,9 @@ public sealed class GigaChatPromptExecutionSettings : PromptExecutionSettings
                     break;
                 case "reasoning_effort":
                     converted.ReasoningEffort = GetString(item.Value);
+                    break;
+                case "max_tool_calls":
+                    converted.MaxToolCalls = GetInt(item.Value) ?? converted.MaxToolCalls;
                     break;
                 default:
                     additional[item.Key] = UnwrapJsonElement(item.Value);

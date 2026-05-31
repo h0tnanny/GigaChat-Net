@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using GigaChat.Net.Models;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -54,6 +55,9 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
 
         var settings = GigaChatPromptExecutionSettings.FromExecutionSettings(executionSettings);
         var functionMap = GigaChatKernelFunctionMapper.CreateFunctionMap(chatHistory, settings, kernel);
+        if (ShouldAutoInvokeFunctions(functionMap))
+            return await GetChatMessageContentsWithToolsAsync(chatHistory, settings, kernel, cancellationToken);
+
         var chat = CreateChat(chatHistory, settings, functionMap);
         var completion = await _client.ChatAsync(chat, settings.Headers, cancellationToken);
 
@@ -99,10 +103,18 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
         GigaChatPromptExecutionSettings settings,
         GigaChatKernelFunctionMap? functionMap = null)
     {
+        return CreateChat(chatHistory.Select(ToGigaChatMessage).ToArray(), settings, functionMap);
+    }
+
+    private Chat CreateChat(
+        IReadOnlyList<Messages> messages,
+        GigaChatPromptExecutionSettings settings,
+        GigaChatKernelFunctionMap? functionMap = null)
+    {
         return new Chat
         {
             Model = settings.ModelId ?? _modelId,
-            Messages = chatHistory.Select(ToGigaChatMessage).ToArray(),
+            Messages = messages,
             Temperature = settings.Temperature,
             TopP = settings.TopP,
             MaxTokens = settings.MaxTokens,
@@ -116,6 +128,56 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
         };
     }
 
+    private async Task<IReadOnlyList<ChatMessageContent>> GetChatMessageContentsWithToolsAsync(
+        ChatHistory chatHistory,
+        GigaChatPromptExecutionSettings settings,
+        Kernel? kernel,
+        CancellationToken cancellationToken)
+    {
+        if (kernel is null)
+            throw new InvalidOperationException("Semantic Kernel function calling requires a Kernel instance.");
+
+        var messages = chatHistory.Select(ToGigaChatMessage).ToList();
+        var functionCalls = new List<ExecutedFunctionCall>();
+        ChatCompletion completion;
+
+        for (var requestIndex = 0; ; requestIndex++)
+        {
+            var functionMap = GigaChatKernelFunctionMapper.CreateFunctionMap(
+                chatHistory,
+                settings,
+                kernel,
+                requestIndex);
+            var chat = CreateChat(messages, settings, functionMap);
+            completion = await _client.ChatAsync(chat, settings.Headers, cancellationToken);
+            var choice = completion.Choices[0];
+            var message = choice.Message;
+
+            if (!IsFunctionCall(choice))
+            {
+                messages.Add(message);
+                return completion.Choices
+                    .Select(finalChoice => CreateChatMessageContent(finalChoice, completion, functionCalls))
+                    .ToArray();
+            }
+
+            messages.Add(message);
+
+            if (functionCalls.Count >= settings.MaxToolCalls)
+                throw new GigaChatException($"Semantic Kernel function calling exceeded the maximum of {settings.MaxToolCalls} tool calls.");
+
+            var functionCall = message.FunctionCall
+                ?? throw new GigaChatException("Model returned function_call finish reason without function_call payload.");
+
+            if (functionMap is null || !functionMap.FunctionsByGigaChatName.TryGetValue(functionCall.Name, out var kernelFunction))
+                throw new GigaChatException($"Unknown Semantic Kernel function call '{functionCall.Name}'.");
+
+            var result = await InvokeKernelFunctionAsync(kernel, kernelFunction, functionCall, cancellationToken);
+            messages.Add(Messages.Function(functionCall.Name, result));
+            functionCalls.Add(new ExecutedFunctionCall(functionCall, result));
+        }
+    }
+
     private static object? ToGigaChatFunctionCallMode(GigaChatKernelFunctionMap? functionMap)
     {
         if (functionMap is null)
@@ -126,6 +188,56 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
             return ChatFunctionCall.For(functionMap.Functions[0].Name);
 
         return FunctionCallMode.Auto;
+    }
+
+    private static bool ShouldAutoInvokeFunctions(GigaChatKernelFunctionMap? functionMap)
+    {
+        return functionMap is { AutoInvoke: true } && functionMap.Choice != FunctionChoice.None;
+    }
+
+    private static bool IsFunctionCall(Choices choice)
+    {
+        return string.Equals(choice.FinishReason, "function_call", StringComparison.OrdinalIgnoreCase)
+            || choice.Message.FunctionCall is not null;
+    }
+
+    private static async Task<string> InvokeKernelFunctionAsync(
+        Kernel kernel,
+        KernelFunction function,
+        FunctionCall functionCall,
+        CancellationToken cancellationToken)
+    {
+        var arguments = new KernelArguments();
+        if (functionCall.Arguments is not null)
+        {
+            foreach (var argument in functionCall.Arguments)
+                arguments[argument.Key] = UnwrapJsonElement(argument.Value);
+        }
+
+        var result = await function.InvokeAsync(kernel, arguments, cancellationToken);
+        return FormatFunctionResult(result.GetValue<object?>());
+    }
+
+    private static string FormatFunctionResult(object? value)
+    {
+        return value switch
+        {
+            null => string.Empty,
+            string text => text,
+            JsonElement element => element.GetRawText(),
+            _ when value.GetType().IsPrimitive => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+            decimal number => number.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            DateTime dateTime => dateTime.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            DateTimeOffset dateTime => dateTime.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            _ => JsonSerializer.Serialize(value, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+        };
+    }
+
+    private static object? UnwrapJsonElement(object? value)
+    {
+        return value is JsonElement element
+            ? JsonSerializer.Deserialize<object?>(element.GetRawText())
+            : value;
     }
 
     private static Messages ToGigaChatMessage(ChatMessageContent message)
@@ -163,9 +275,12 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
         };
     }
 
-    private static ChatMessageContent CreateChatMessageContent(Choices choice, ChatCompletion completion)
+    private static ChatMessageContent CreateChatMessageContent(
+        Choices choice,
+        ChatCompletion completion,
+        IReadOnlyList<ExecutedFunctionCall>? functionCalls = null)
     {
-        var metadata = CreateMessageMetadata(choice, completion);
+        var metadata = CreateMessageMetadata(choice, completion, functionCalls);
         return new ChatMessageContent(
             ToAuthorRole(choice.Message.Role),
             choice.Message.Content,
@@ -179,7 +294,8 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
 
     private static IReadOnlyDictionary<string, object?> CreateMessageMetadata(
         Choices choice,
-        ChatCompletion completion)
+        ChatCompletion completion,
+        IReadOnlyList<ExecutedFunctionCall>? functionCalls = null)
     {
         var metadata = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
@@ -194,6 +310,8 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
             metadata["message_id"] = completion.MessageId;
         if (completion.XHeaders is not null)
             metadata["x_headers"] = completion.XHeaders;
+        if (functionCalls is { Count: > 0 })
+            metadata["function_calls"] = functionCalls;
 
         return metadata;
     }
