@@ -676,11 +676,14 @@ foreach (var entry in balance.BalanceEntries)
 ## Разработка и публикация
 
 - Pull requests проверяются workflow `CI`: restore, build, test и pack обоих NuGet-пакетов.
-- Push в `master` публикует preview версии вида `0.1.0-preview.<run>.<attempt>` в NuGet.org и GitHub Packages.
-- GitHub Release или ручной запуск release workflow публикует стабильную SemVer версию в NuGet.org и GitHub Packages.
+- Разработка ведется через `develop`; feature и bugfix ветки создаются от `develop` в формате `feature/GN-123-short-description`.
+- Коммиты и PR title ведутся в формате `[GN-123] feat: short description`.
+- Push в `develop` публикует preview версии вида `0.1.0-preview.<run>.<attempt>` в NuGet.org и GitHub Packages и создает tag `preview/v...`.
+- Stable tag `vX.Y.Z` из `master` публикует release версию в NuGet.org и GitHub Packages.
 - Для публикации нужен GitHub Actions secret `NUGET_API_KEY`.
 - GitHub Packages не зеркалирует NuGet.org автоматически; CI отдельно публикует тот же `.nupkg`, чтобы пакет появился во вкладке `Packages`.
 
+Правила веток, коммитов, Project, code review и тестового покрытия: [CONTRIBUTING.md](CONTRIBUTING.md).
 Полная инструкция: [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## Связанные проекты

@@ -3,11 +3,11 @@ name: Publish Preview NuGet Packages
 on:
   push:
     branches:
-      - master
+      - develop
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 env:
@@ -32,6 +32,13 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
+      - name: Validate preview source
+        run: |
+          if [ "${{ github.ref_name }}" != "develop" ]; then
+            echo "Preview packages must be published from develop." >&2
+            exit 1
+          fi
 
       - name: Validate NuGet API key
         env:
@@ -96,3 +103,13 @@ jobs:
           for package in "${packages[@]}"; do
             dotnet nuget push "$package" --api-key "${{ secrets.GITHUB_TOKEN }}" --source "github" --skip-duplicate --no-symbols
           done
+
+      - name: Tag preview
+        run: |
+          tag="preview/v${PACKAGE_VERSION}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$tag" -m "Preview ${PACKAGE_VERSION}"
+          git push origin "$tag"

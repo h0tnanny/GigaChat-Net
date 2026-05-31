@@ -1,0 +1,73 @@
+name: Repository Policy
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate-pr-policy:
+    name: Validate PR policy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Validate branch, title, and commits
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          task_pattern='GN-[0-9]+'
+          change_type_pattern='feat|fix|docs|test|refactor|ci|chore|perf|build|revert'
+          branch_pattern="^(feature|bugfix|hotfix|docs|chore|refactor|test|ci)/${task_pattern}-[a-z0-9]+(-[a-z0-9]+)*$"
+          master_branch_pattern="^(release|hotfix)/${task_pattern}-[a-z0-9]+(-[a-z0-9]+)*$"
+          title_pattern="^\[${task_pattern}\] (${change_type_pattern}): .+"
+
+          if [[ "$BASE_BRANCH" != "develop" && "$BASE_BRANCH" != "master" ]]; then
+            echo "Pull requests are allowed only into develop or master." >&2
+            exit 1
+          fi
+
+          if [[ "$BASE_BRANCH" == "develop" && ! "$HEAD_BRANCH" =~ $branch_pattern ]]; then
+            echo "Branches targeting develop must match feature/GN-123-short-description, bugfix/GN-123-short-description, and similar prefixes." >&2
+            exit 1
+          fi
+
+          if [[ "$BASE_BRANCH" == "master" && "$HEAD_BRANCH" != "develop" && ! "$HEAD_BRANCH" =~ $master_branch_pattern ]]; then
+            echo "Branches targeting master must be develop, release/GN-123-short-description, or hotfix/GN-123-short-description." >&2
+            exit 1
+          fi
+
+          if [[ ! "$PR_TITLE" =~ $title_pattern ]]; then
+            echo "PR title must match [GN-123] feat: short description." >&2
+            exit 1
+          fi
+
+          git fetch origin "$BASE_BRANCH:refs/remotes/origin/$BASE_BRANCH" --depth=1
+          failed=0
+
+          while IFS= read -r subject; do
+            if [[ ! "$subject" =~ $title_pattern ]]; then
+              echo "Invalid commit subject: $subject" >&2
+              failed=1
+            fi
+          done < <(git log --format=%s "origin/${BASE_BRANCH}..HEAD")
+
+          if [[ "$failed" -ne 0 ]]; then
+            echo "Every PR commit must match [GN-123] feat: short description." >&2
+            exit 1
+          fi

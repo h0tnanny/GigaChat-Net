@@ -2,6 +2,8 @@
 
 Этот документ описывает, как вести `GigaChat.Net` как публичный SDK: где хранить код, как выпускать preview и release NuGet-пакеты, как работать с GitHub Issues/Projects и что нужно настроить перед первой публикацией.
 
+Общие правила веток, коммитов, PR, code review и Project описаны в `CONTRIBUTING.md`.
+
 NuGet.org остается основным публичным registry для пользователей .NET. GitHub Packages используется как дополнительный registry, чтобы пакеты были видны во вкладке `Packages` репозитория GitHub и могли устанавливаться из GitHub Package Registry.
 
 ## Один репозиторий или два
@@ -34,9 +36,10 @@ NuGet README должен быть короче root README: пользоват�
 
 В репозитории настроены:
 
-- `.github/workflows/ci.yml` - сборка, тесты и упаковка на pull request, push в `master` и ручной запуск.
-- `.github/workflows/publish-preview.yml` - публикация preview пакетов на каждый push в `master` в NuGet.org и GitHub Packages.
-- `.github/workflows/publish-release.yml` - публикация release пакетов при публикации GitHub Release или ручном запуске в NuGet.org и GitHub Packages.
+- `.github/workflows/ci.yml` - сборка, тесты и упаковка на pull request, push в `master`/`develop` и ручной запуск.
+- `.github/workflows/repository-policy.yml` - проверка PR target branch, branch name, PR title и commit subjects.
+- `.github/workflows/publish-preview.yml` - публикация preview пакетов на каждый push в `develop` в NuGet.org и GitHub Packages с созданием preview tag.
+- `.github/workflows/publish-release.yml` - публикация release пакетов при push stable tag `vX.Y.Z` или публикации GitHub Release в NuGet.org и GitHub Packages.
 - `.github/ISSUE_TEMPLATE/bug_report.yml` - шаблон bug report.
 - `.github/ISSUE_TEMPLATE/feature_request.yml` - шаблон feature request.
 - `.github/ISSUE_TEMPLATE/task.yml` - шаблон task.
@@ -91,6 +94,7 @@ Workflow `CI` запускается на:
 
 - pull request;
 - push в `master`;
+- push в `develop`;
 - ручной `workflow_dispatch`.
 
 Он делает:
@@ -113,7 +117,7 @@ dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configu
 
 ## Preview публикация
 
-Workflow `Publish Preview NuGet Packages` запускается на каждый push в `master` и вручную.
+Workflow `Publish Preview NuGet Packages` запускается на каждый push в `develop` и вручную только с ref `develop`.
 
 Версия preview формируется автоматически:
 
@@ -130,6 +134,7 @@ Preview workflow:
 5. Упаковывает оба проекта.
 6. Публикует `.nupkg` и `.snupkg` в nuget.org.
 7. Публикует `.nupkg` в GitHub Packages.
+8. Создает annotated tag вида `preview/v0.1.0-preview.<run>.<attempt>`.
 
 GitHub Packages не является зеркалом NuGet.org. Даже если NuGet пакет содержит `RepositoryUrl` и связан с GitHub репозиторием, вкладка GitHub `Packages` покажет пакет только после отдельной публикации в GitHub Packages. Поэтому workflow публикует один и тот же `.nupkg` в оба registry.
 
@@ -161,45 +166,51 @@ dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-preview.<run>.<attemp
 
 Workflow `Publish Release NuGet Packages` запускается двумя способами.
 
-Первый способ - GitHub Release:
+Первый способ - stable tag из `master`:
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-Затем на GitHub создайте Release из tag `v0.1.0` и нажмите `Publish release`. Workflow возьмет tag, удалит начальную `v` и опубликует NuGet версию `0.1.0`.
+Workflow возьмет tag, удалит начальную `v` и опубликует NuGet версию `0.1.0`.
+Release tag должен указывать на commit, который содержится в `master`.
 
-Второй способ - ручной запуск workflow:
+Второй способ - GitHub Release:
 
-1. Откройте `Actions`.
-2. Выберите `Publish Release NuGet Packages`.
-3. Нажмите `Run workflow`.
-4. Укажите `version`, например `0.1.0`.
+1. Создайте tag `vX.Y.Z` из `master`.
+2. Откройте GitHub Releases.
+3. Создайте Release из этого tag.
+4. Нажмите `Publish release`.
 
-Release workflow принимает SemVer:
+Release workflow принимает только stable SemVer:
 
 ```text
 1.0.0
-1.0.0-rc.1
-1.2.3-preview.4
+1.2.3
 ```
 
 Если версия уже опубликована в NuGet.org или GitHub Packages, перезаписать ее нельзя. Нужно выпустить новую версию.
 
 ## Рекомендуемый релизный процесс
 
-1. Вести разработку в feature branch.
-2. Открывать PR в `master`.
-3. Дождаться зеленого `CI`.
-4. Слить PR в `master`.
-5. Дождаться публикации preview пакетов.
-6. Проверить preview в реальном приложении или example.
-7. Создать release tag `vX.Y.Z`.
-8. Опубликовать GitHub Release.
-9. Дождаться `Publish Release NuGet Packages`.
-10. Проверить страницы пакетов на nuget.org.
-11. Проверить, что пакеты появились во вкладке `Packages` репозитория GitHub.
+1. Создать GitHub issue и добавить его в Project.
+2. Создать ветку `feature/GN-123-short-description` или `bugfix/GN-123-short-description` от `develop`.
+3. Вести коммиты в формате `[GN-123] feat: short description`.
+4. Открыть PR в `develop`.
+5. Перевести Project status в `Review`.
+6. Пройти code review, security review и проверку тестового покрытия.
+7. Слить PR в `develop`.
+8. Дождаться публикации preview пакетов и preview tag.
+9. Проверить preview в реальном приложении или example.
+10. Открыть PR `develop -> master`.
+11. Дождаться зеленого `CI` и code review.
+12. Слить PR в `master`.
+13. Создать release tag `vX.Y.Z` на commit из `master`.
+14. Запушить tag и дождаться `Publish Release NuGet Packages`.
+15. Проверить страницы пакетов на nuget.org.
+16. Проверить, что пакеты появились во вкладке `Packages` репозитория GitHub.
+17. Удалить завершенные feature, bugfix, release и hotfix ветки.
 
 ## Локальная проверка перед PR
 
@@ -221,9 +232,9 @@ dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-local --source ./arti
 
 ## Версионирование
 
-До первого стабильного релиза используйте ветку `0.x`:
+До первого стабильного релиза используйте ветку версий `0.x`:
 
-- `0.1.0-preview.N` - автоматические preview сборки из `master`.
+- `0.1.0-preview.<run>.<attempt>` - автоматические preview сборки из `develop`, помеченные tag `preview/v0.1.0-preview.<run>.<attempt>`.
 - `0.1.0` - первый стабильный публичный release.
 - `0.2.0` - новые совместимые возможности.
 - `0.1.1` - исправления без изменения публичного API.
