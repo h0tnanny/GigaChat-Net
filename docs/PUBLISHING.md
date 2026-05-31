@@ -8,27 +8,29 @@ NuGet.org остается основным публичным registry для �
 
 ## Один репозиторий или два
 
-Для текущего состояния правильнее оставить один репозиторий `h0tnanny/GigaChat-Net` и выпускать из него два NuGet-пакета:
+Для текущего состояния правильнее оставить один репозиторий `h0tnanny/GigaChat-Net` и выпускать из него три NuGet-пакета:
 
 | Пакет | Проект | Назначение |
 | --- | --- | --- |
 | `GigaChat.Net` | `src/GigaChat.Net` | Базовый SDK: клиент, модели, auth, streaming, embeddings, files, retry. |
 | `GigaChat.Net.AspNetCore` | `src/GigaChat.Net.AspNetCore` | DI, middleware, request context и ASP.NET Core интеграция поверх базового SDK. |
+| `GigaChat.Net.SemanticKernel` | `src/GigaChat.Net.SemanticKernel` | Адаптер Semantic Kernel `IChatCompletionService` поверх базового SDK. |
 
 Причины оставить монорепозиторий:
 
-- ASP.NET Core пакет зависит от базового SDK и должен выпускаться совместимой версией.
-- Один CI прогон проверяет оба проекта и интеграционные сценарии.
+- Расширения зависят от базового SDK и должны выпускаться совместимой версией.
+- Один CI прогон проверяет все проекты и интеграционные сценарии.
 - Issues, bug reports и roadmap проще вести в одном Project.
 - Общая документация не расходится между пакетами.
 
-Разделять на два репозитория имеет смысл только если ASP.NET Core пакет начнет жить с независимым релизным циклом, отдельной командой поддержки или существенно другим набором зависимостей. Сейчас это расширение к SDK, поэтому монорепозиторий чище.
+Разделять на несколько репозиториев имеет смысл только если расширения начнут жить с независимым релизным циклом, отдельной командой поддержки или существенно другим набором зависимостей. Сейчас это расширения к SDK, поэтому монорепозиторий чище.
 
 README нужны разные по назначению:
 
 - `README.md` в корне - главная документация репозитория и точка входа для GitHub.
 - `docs/nuget/GigaChat.Net.md` - короткая страница NuGet для базового пакета.
 - `docs/nuget/GigaChat.Net.AspNetCore.md` - короткая страница NuGet для ASP.NET Core пакета.
+- `docs/nuget/GigaChat.Net.SemanticKernel.md` - короткая страница NuGet для Semantic Kernel пакета.
 
 NuGet README должен быть короче root README: пользователь на NuGet странице должен быстро понять, какой пакет поставить и где лежит полная документация.
 
@@ -36,9 +38,9 @@ NuGet README должен быть короче root README: пользоват�
 
 В репозитории настроены:
 
-- `.github/workflows/ci.yml` - сборка, тесты и упаковка на pull request, push в `master`/`develop` и ручной запуск.
+- `.github/workflows/ci.yml` - сборка, тесты и упаковка на pull request, push в `master`/`develop`/`semantic-kernel` и ручной запуск.
 - `.github/workflows/repository-policy.yml` - проверка PR target branch, branch name, PR title и commit subjects.
-- `.github/workflows/publish-preview.yml` - публикация preview пакетов на каждый push в `develop` в NuGet.org и GitHub Packages с созданием preview tag.
+- `.github/workflows/publish-preview.yml` - публикация preview пакетов на каждый push в `develop` и `semantic-kernel` в NuGet.org и GitHub Packages с созданием preview tag.
 - `.github/workflows/publish-release.yml` - публикация release пакетов при push stable tag `vX.Y.Z` или публикации GitHub Release в NuGet.org и GitHub Packages.
 - `.github/ISSUE_TEMPLATE/bug_report.yml` - шаблон bug report.
 - `.github/ISSUE_TEMPLATE/feature_request.yml` - шаблон feature request.
@@ -95,6 +97,7 @@ Workflow `CI` запускается на:
 - pull request;
 - push в `master`;
 - push в `develop`;
+- push в `semantic-kernel`;
 - ручной `workflow_dispatch`.
 
 Он делает:
@@ -105,6 +108,7 @@ dotnet build GigaChat.Net.slnx --configuration Release --no-restore
 dotnet test GigaChat.Net.slnx --configuration Release --no-build
 dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build
 dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build
+dotnet pack src/GigaChat.Net.SemanticKernel/GigaChat.Net.SemanticKernel.csproj --configuration Release --no-build
 ```
 
 В CI используется временная версия пакета:
@@ -117,12 +121,13 @@ dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configu
 
 ## Preview публикация
 
-Workflow `Publish Preview NuGet Packages` запускается на каждый push в `develop` и вручную только с ref `develop`.
+Workflow `Publish Preview NuGet Packages` запускается на каждый push в `develop` или `semantic-kernel` и вручную только с одним из этих ref.
 
 Версия preview формируется автоматически:
 
 ```text
 0.1.0-preview.<github.run_number>.<github.run_attempt>
+0.1.0-preview.semantic-kernel.<github.run_number>.<github.run_attempt>
 ```
 
 Preview workflow:
@@ -131,10 +136,10 @@ Preview workflow:
 2. Восстанавливает зависимости.
 3. Собирает решение в `Release`.
 4. Запускает тесты.
-5. Упаковывает оба проекта.
+5. Упаковывает все NuGet-проекты.
 6. Публикует `.nupkg` и `.snupkg` в nuget.org.
 7. Публикует `.nupkg` в GitHub Packages.
-8. Создает annotated tag вида `preview/v0.1.0-preview.<run>.<attempt>`.
+8. Создает annotated tag вида `preview/v0.1.0-preview.<run>.<attempt>` или `preview/v0.1.0-preview.semantic-kernel.<run>.<attempt>`.
 
 GitHub Packages не является зеркалом NuGet.org. Даже если NuGet пакет содержит `RepositoryUrl` и связан с GitHub репозиторием, вкладка GitHub `Packages` покажет пакет только после отдельной публикации в GitHub Packages. Поэтому workflow публикует один и тот же `.nupkg` в оба registry.
 
@@ -143,6 +148,13 @@ GitHub Packages не является зеркалом NuGet.org. Даже ес�
 ```bash
 dotnet add package GigaChat.Net --version 0.1.0-preview.<run>.<attempt>
 dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-preview.<run>.<attempt>
+dotnet add package GigaChat.Net.SemanticKernel --version 0.1.0-preview.<run>.<attempt>
+```
+
+Для preview из ветки `semantic-kernel` используйте версию:
+
+```bash
+dotnet add package GigaChat.Net.SemanticKernel --version 0.1.0-preview.semantic-kernel.<run>.<attempt>
 ```
 
 Preview пакеты подходят для проверки интеграции до стабильного релиза. Их не стоит считать контрактом совместимости.
@@ -158,6 +170,7 @@ dotnet nuget add source "https://nuget.pkg.github.com/h0tnanny/index.json" \
 
 dotnet add package GigaChat.Net --version 0.1.0-preview.<run>.<attempt> --source github
 dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-preview.<run>.<attempt> --source github
+dotnet add package GigaChat.Net.SemanticKernel --version 0.1.0-preview.<run>.<attempt> --source github
 ```
 
 Для обычных пользователей предпочтительнее установка из NuGet.org без дополнительного source.
@@ -220,6 +233,7 @@ dotnet build GigaChat.Net.slnx --configuration Release --no-restore
 dotnet test GigaChat.Net.slnx --configuration Release --no-build
 dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.1.0-local
 dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.1.0-local
+dotnet pack src/GigaChat.Net.SemanticKernel/GigaChat.Net.SemanticKernel.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.1.0-local
 ```
 
 Локальная установка из папки:
@@ -228,6 +242,7 @@ dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configu
 dotnet nuget add source ./artifacts/packages --name GigaChatLocal
 dotnet add package GigaChat.Net --version 0.1.0-local --source ./artifacts/packages
 dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-local --source ./artifacts/packages
+dotnet add package GigaChat.Net.SemanticKernel --version 0.1.0-local --source ./artifacts/packages
 ```
 
 ## Версионирование
@@ -235,6 +250,7 @@ dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-local --source ./arti
 До первого стабильного релиза используйте ветку версий `0.x`:
 
 - `0.1.0-preview.<run>.<attempt>` - автоматические preview сборки из `develop`, помеченные tag `preview/v0.1.0-preview.<run>.<attempt>`.
+- `0.1.0-preview.semantic-kernel.<run>.<attempt>` - автоматические preview сборки из ветки `semantic-kernel`, помеченные tag `preview/v0.1.0-preview.semantic-kernel.<run>.<attempt>`.
 - `0.1.0` - первый стабильный публичный release.
 - `0.2.0` - новые совместимые возможности.
 - `0.1.1` - исправления без изменения публичного API.
@@ -245,7 +261,7 @@ dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-local --source ./arti
 - `MINOR` - новые возможности без breaking changes.
 - `PATCH` - bug fixes.
 
-Если `GigaChat.Net.AspNetCore` зависит от `GigaChat.Net`, выпускайте оба пакета одной версией. Это снижает риск, что пользователь установит несовместимые версии.
+Если расширение зависит от `GigaChat.Net`, выпускайте все пакеты одной версией. Это снижает риск, что пользователь установит несовместимые версии.
 
 ## Labels
 
@@ -259,6 +275,7 @@ dotnet add package GigaChat.Net.AspNetCore --version 0.1.0-local --source ./arti
 | `type:docs` | Документация. |
 | `area:sdk` | Базовый SDK. |
 | `area:aspnetcore` | ASP.NET Core интеграция. |
+| `area:semantic-kernel` | Semantic Kernel интеграция. |
 | `area:ci` | GitHub Actions, NuGet, packaging. |
 | `area:examples` | Example проекты. |
 | `priority:p0` | Критично. |

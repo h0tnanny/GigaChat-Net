@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - semantic-kernel
   workflow_dispatch:
 
 permissions:
@@ -15,7 +16,6 @@ env:
   GIGACHAT_AUTH_URL: https://auth.example.test/oauth
   NUGET_SOURCE: https://api.nuget.org/v3/index.json
   GITHUB_PACKAGES_SOURCE: https://nuget.pkg.github.com/h0tnanny/index.json
-  PACKAGE_VERSION: 0.1.0-preview.${{ github.run_number }}.${{ github.run_attempt }}
 
 jobs:
   publish-preview:
@@ -35,10 +35,28 @@ jobs:
 
       - name: Validate preview source
         run: |
-          if [ "${{ github.ref_name }}" != "develop" ]; then
-            echo "Preview packages must be published from develop." >&2
+          if [ "${{ github.ref_name }}" != "develop" ] && [ "${{ github.ref_name }}" != "semantic-kernel" ]; then
+            echo "Preview packages must be published from develop or semantic-kernel." >&2
             exit 1
           fi
+
+      - name: Resolve preview version
+        id: version
+        run: |
+          case "${{ github.ref_name }}" in
+            develop)
+              package_version="0.1.0-preview.${{ github.run_number }}.${{ github.run_attempt }}"
+              ;;
+            semantic-kernel)
+              package_version="0.1.0-preview.semantic-kernel.${{ github.run_number }}.${{ github.run_attempt }}"
+              ;;
+            *)
+              echo "Unsupported preview branch: ${{ github.ref_name }}" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "package_version=$package_version" >> "$GITHUB_OUTPUT"
 
       - name: Validate NuGet API key
         env:
@@ -60,8 +78,9 @@ jobs:
 
       - name: Pack preview packages
         run: |
-          dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=$PACKAGE_VERSION
-          dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=$PACKAGE_VERSION
+          dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=${{ steps.version.outputs.package_version }}
+          dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=${{ steps.version.outputs.package_version }}
+          dotnet pack src/GigaChat.Net.SemanticKernel/GigaChat.Net.SemanticKernel.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=${{ steps.version.outputs.package_version }}
 
       - name: Publish packages to NuGet
         env:
@@ -106,10 +125,10 @@ jobs:
 
       - name: Tag preview
         run: |
-          tag="preview/v${PACKAGE_VERSION}"
+          tag="preview/v${{ steps.version.outputs.package_version }}"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git tag -a "$tag" -m "Preview ${PACKAGE_VERSION}"
+          git tag -a "$tag" -m "Preview ${{ steps.version.outputs.package_version }}"
           git push origin "$tag"

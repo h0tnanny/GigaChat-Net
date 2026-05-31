@@ -25,6 +25,7 @@
 - ✅ **Multiple auth methods** — OAuth credentials, password, TLS certificates, access tokens
 - ✅ **Automatic retry** — настраиваемый экспоненциальный backoff для временных ошибок
 - ✅ **ASP.NET Core интеграция** — регистрация через DI и прокидывание request context
+- ✅ **Semantic Kernel интеграция** — `IChatCompletionService` для агентов Microsoft Semantic Kernel
 - ✅ **Fully typed** — полная типизация с поддержкой IDE
 
 ## Установка
@@ -39,18 +40,26 @@ dotnet add package GigaChat.Net
 dotnet add package GigaChat.Net.AspNetCore
 ```
 
+Для Microsoft Semantic Kernel:
+
+```bash
+dotnet add package GigaChat.Net.SemanticKernel
+dotnet add package Microsoft.SemanticKernel.Agents.Core
+```
+
 **Требования:** .NET 10.0+
 
 ## Пакеты и репозиторий
 
-Проект ведется как один monorepo с двумя NuGet-пакетами:
+Проект ведется как один monorepo с тремя NuGet-пакетами:
 
 | Пакет | Когда нужен |
 |-------|-------------|
 | `GigaChat.Net` | Базовый SDK: клиент, модели, auth, streaming, embeddings, files, retry. |
 | `GigaChat.Net.AspNetCore` | DI-регистрация, middleware и request context для ASP.NET Core. |
+| `GigaChat.Net.SemanticKernel` | Адаптер `IChatCompletionService` для агентов и prompt pipelines Semantic Kernel. |
 
-Такой формат позволяет выпускать совместимые версии SDK и ASP.NET Core расширения из одного CI.
+Такой формат позволяет выпускать совместимые версии SDK и расширений из одного CI.
 Подробная схема GitHub Project, preview/release публикации и NuGet secrets описана в
 [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
@@ -104,6 +113,40 @@ foreach (var chunk in client.Stream("Напиши короткое стихот�
     Console.Write(chunk.Choices[0].Delta.Content);
 }
 Console.WriteLine();
+```
+
+### Semantic Kernel Agent
+
+```csharp
+using GigaChat.Net;
+using GigaChat.Net.SemanticKernel;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Agents;
+
+var kernel = Kernel.CreateBuilder()
+    .AddGigaChatChatCompletion(new Settings
+    {
+        Credentials = Environment.GetEnvironmentVariable("GIGACHAT_CREDENTIALS"),
+        Model = "GigaChat"
+    })
+    .Build();
+
+ChatCompletionAgent agent = new()
+{
+    Name = "GigaChatAgent",
+    Instructions = "Ты полезный ассистент. Отвечай кратко.",
+    Kernel = kernel,
+    Arguments = new KernelArguments(new GigaChatPromptExecutionSettings
+    {
+        Temperature = 0.2,
+        MaxTokens = 800
+    })
+};
+
+await foreach (var response in agent.InvokeAsync("Составь чеклист релиза SDK."))
+{
+    Console.WriteLine(response.Message.Content);
+}
 ```
 
 ### Async
@@ -685,10 +728,10 @@ foreach (var entry in balance.BalanceEntries)
 
 ## Разработка и публикация
 
-- Pull requests проверяются workflow `CI`: restore, build, test и pack обоих NuGet-пакетов.
+- Pull requests проверяются workflow `CI`: restore, build, test и pack всех NuGet-пакетов.
 - Разработка ведется через `develop`; feature и bugfix ветки создаются от `develop` в формате `feature/GN-123-short-description`.
 - Коммиты и PR title ведутся в формате `[GN-123] feat: short description`.
-- Push в `develop` публикует preview версии вида `0.1.0-preview.<run>.<attempt>` в NuGet.org и GitHub Packages и создает tag `preview/v...`.
+- Push в `develop` публикует preview версии вида `0.1.0-preview.<run>.<attempt>`, а push в `semantic-kernel` - `0.1.0-preview.semantic-kernel.<run>.<attempt>` в NuGet.org и GitHub Packages и создает tag `preview/v...`.
 - Stable tag `vX.Y.Z` из `master` публикует release версию в NuGet.org и GitHub Packages.
 - Для публикации нужен GitHub Actions secret `NUGET_API_KEY`.
 - GitHub Packages не зеркалирует NuGet.org автоматически; CI отдельно публикует тот же `.nupkg`, чтобы пакет появился во вкладке `Packages`.
