@@ -42,7 +42,7 @@ jobs:
         run: dotnet build GigaChat.Net.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test GigaChat.Net.slnx --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+        run: dotnet test GigaChat.Net.slnx --configuration Release --no-build --logger "trx;LogFilePrefix=test-results"
 
       - name: Pack
         run: |
