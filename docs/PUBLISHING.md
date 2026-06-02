@@ -53,7 +53,7 @@ GitHub Project создается отдельно через GitHub UI или G
 | Type | Single select | `Bug`, `Task`, `Feature`, `Docs`, `CI` |
 | Area | Single select | `SDK`, `ASP.NET Core`, `CI/CD`, `Docs`, `Examples` |
 | Priority | Single select | `P0`, `P1`, `P2`, `P3` |
-| Version | Text | Например `1.0.1-preview`, `1.0.1`, `1.1.0` |
+| Version | Text | Например `1.0.2-preview`, `1.0.2`, `1.1.0` |
 
 ## Secrets
 
@@ -122,7 +122,7 @@ Workflow `Publish Preview NuGet Packages` запускается на кажды
 Версия preview формируется автоматически:
 
 ```text
-1.0.1-preview.<github.run_number>.<github.run_attempt>
+1.0.2-preview.<github.run_number>.<github.run_attempt>
 ```
 
 Preview workflow:
@@ -134,15 +134,15 @@ Preview workflow:
 5. Упаковывает оба проекта.
 6. Публикует `.nupkg` и `.snupkg` в nuget.org.
 7. Публикует `.nupkg` в GitHub Packages.
-8. Создает annotated tag вида `preview/v1.0.1-preview.<run>.<attempt>`.
+8. Создает annotated tag вида `preview/v1.0.2-preview.<run>.<attempt>`.
 
 GitHub Packages не является зеркалом NuGet.org. Даже если NuGet пакет содержит `RepositoryUrl` и связан с GitHub репозиторием, вкладка GitHub `Packages` покажет пакет только после отдельной публикации в GitHub Packages. Поэтому workflow публикует один и тот же `.nupkg` в оба registry.
 
 Установка preview версии:
 
 ```bash
-dotnet add package GigaChat.Net --version 1.0.1-preview.<run>.<attempt>
-dotnet add package GigaChat.Net.AspNetCore --version 1.0.1-preview.<run>.<attempt>
+dotnet add package GigaChat.Net --version 1.0.2-preview.<run>.<attempt>
+dotnet add package GigaChat.Net.AspNetCore --version 1.0.2-preview.<run>.<attempt>
 ```
 
 Preview пакеты подходят для проверки интеграции до стабильного релиза. Их не стоит считать контрактом совместимости.
@@ -156,8 +156,8 @@ dotnet nuget add source "https://nuget.pkg.github.com/h0tnanny/index.json" \
   --password "<github-token>" \
   --store-password-in-clear-text
 
-dotnet add package GigaChat.Net --version 1.0.1-preview.<run>.<attempt> --source github
-dotnet add package GigaChat.Net.AspNetCore --version 1.0.1-preview.<run>.<attempt> --source github
+dotnet add package GigaChat.Net --version 1.0.2-preview.<run>.<attempt> --source github
+dotnet add package GigaChat.Net.AspNetCore --version 1.0.2-preview.<run>.<attempt> --source github
 ```
 
 Для обычных пользователей предпочтительнее установка из NuGet.org без дополнительного source.
@@ -169,11 +169,11 @@ Workflow `Publish Release NuGet Packages` запускается двумя сп
 Первый способ - stable tag из `master`:
 
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.0.2
+git push origin v1.0.2
 ```
 
-Workflow возьмет tag, удалит начальную `v` и опубликует NuGet версию `1.0.1`.
+Workflow возьмет tag, удалит начальную `v` и опубликует NuGet версию `1.0.2`.
 Release tag должен указывать на commit, который содержится в `master`.
 
 Второй способ - GitHub Release:
@@ -218,16 +218,16 @@ Release workflow принимает только stable SemVer:
 dotnet restore GigaChat.Net.slnx
 dotnet build GigaChat.Net.slnx --configuration Release --no-restore
 dotnet test GigaChat.Net.slnx --configuration Release --no-build
-dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=1.0.1-local
-dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=1.0.1-local
+dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=1.0.2-local
+dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=1.0.2-local
 ```
 
 Локальная установка из папки:
 
 ```bash
 dotnet nuget add source ./artifacts/packages --name GigaChatLocal
-dotnet add package GigaChat.Net --version 1.0.1-local --source ./artifacts/packages
-dotnet add package GigaChat.Net.AspNetCore --version 1.0.1-local --source ./artifacts/packages
+dotnet add package GigaChat.Net --version 1.0.2-local --source ./artifacts/packages
+dotnet add package GigaChat.Net.AspNetCore --version 1.0.2-local --source ./artifacts/packages
 ```
 
 ## Версионирование
