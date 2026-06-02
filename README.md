@@ -39,7 +39,7 @@ dotnet add package GigaChat.Net
 dotnet add package GigaChat.Net.AspNetCore
 ```
 
-**Требования:** .NET 6.0, .NET 7.0 или .NET 8.0
+**Требования:** .NET 6.0, .NET 7.0, .NET 8.0, .NET 9.0 или .NET 10.0
 
 ## Пакеты и репозиторий
 
@@ -688,7 +688,7 @@ foreach (var entry in balance.BalanceEntries)
 - Pull requests проверяются workflow `CI`: restore, build, test и pack обоих NuGet-пакетов.
 - Разработка ведется через `develop`; feature и bugfix ветки создаются от `develop` в формате `feature/GN-123-short-description`.
 - Коммиты и PR title ведутся в формате `[GN-123] feat: short description`.
-- Push в `develop` публикует preview версии вида `1.0.1-preview.<run>.<attempt>` в NuGet.org и GitHub Packages и создает tag `preview/v...`.
+- Push в `develop` публикует preview версии вида `1.0.2-preview.<run>.<attempt>` в NuGet.org и GitHub Packages и создает tag `preview/v...`.
 - Stable tag `vX.Y.Z` из `master` публикует release версию в NuGet.org и GitHub Packages.
 - Для публикации нужен GitHub Actions secret `NUGET_API_KEY`.
 - GitHub Packages не зеркалирует NuGet.org автоматически; CI отдельно публикует тот же `.nupkg`, чтобы пакет появился во вкладке `Packages`.

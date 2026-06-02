@@ -24,8 +24,12 @@ public class TargetFrameworkCompatibilityTests
         return ".NETCoreApp,Version=v7.0";
 #elif NET8_0
         return ".NETCoreApp,Version=v8.0";
+#elif NET9_0
+        return ".NETCoreApp,Version=v9.0";
+#elif NET10_0
+        return ".NETCoreApp,Version=v10.0";
 #else
-        throw new InvalidOperationException("Tests must run on net6.0, net7.0, or net8.0.");
+        throw new InvalidOperationException("Tests must run on net6.0, net7.0, net8.0, net9.0, or net10.0.");
 #endif
     }
 
