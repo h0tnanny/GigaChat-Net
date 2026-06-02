@@ -121,7 +121,7 @@ public static class FunctionSchema
 {
     internal static JsonSerializerOptions DefaultJsonOptions { get; } = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        PropertyNamingPolicy = GigaChatJsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 

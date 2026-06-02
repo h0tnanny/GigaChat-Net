@@ -20,7 +20,7 @@ https://github.com/h0tnanny/GigaChat-Net/issues
 dotnet add package GigaChat.Net.AspNetCore
 ```
 
-Пакет зависит от `GigaChat.Net` и рассчитан на .NET 10.0 или новее.
+Пакет зависит от `GigaChat.Net` и поддерживает .NET 6.0, .NET 7.0 и .NET 8.0.
 
 ## Быстрый старт
 

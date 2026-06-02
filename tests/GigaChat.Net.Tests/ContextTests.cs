@@ -232,7 +232,8 @@ public class ContextTests
             new Settings
             {
                 AccessToken = "settings-token",
-                Model = "settings-model"
+                Model = "settings-model",
+                AllowModelOverrideFromHeader = false
             },
             handler);
 
