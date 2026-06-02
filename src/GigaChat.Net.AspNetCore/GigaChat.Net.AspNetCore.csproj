@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net6.0;net7.0;net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>12.0</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
@@ -17,7 +18,7 @@
     <RepositoryUrl>https://github.com/h0tnanny/GigaChat-Net</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/h0tnanny/GigaChat-Net</PackageProjectUrl>
-    <PackageReleaseNotes>Initial preview release of ASP.NET Core extensions for GigaChat.Net.</PackageReleaseNotes>
+    <PackageReleaseNotes>Semantic Kernel preview branch with explicit .NET 6 through .NET 10 package targets.</PackageReleaseNotes>
 
     <!-- Symbol and Source Link -->
     <IncludeSymbols>true</IncludeSymbols>

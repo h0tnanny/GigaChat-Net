@@ -108,7 +108,7 @@ public sealed partial class GigaChatClient : IGigaChatClient, IDisposable
         _delay = delay ?? System.Threading.Thread.Sleep;
         _jsonOptions = new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            PropertyNamingPolicy = GigaChatJsonNamingPolicy.SnakeCaseLower,
             DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
         };
         _jsonOptions.Converters.Add(new SnakeCaseLowerEnumConverter<MessagesRole>());
@@ -226,9 +226,22 @@ public sealed partial class GigaChatClient : IGigaChatClient, IDisposable
                     settings.KeyFile);
         }
 
-        return string.IsNullOrEmpty(settings.KeyFilePassword)
-            ? X509CertificateLoader.LoadCertificateFromFile(settings.CertFile!)
-            : X509CertificateLoader.LoadPkcs12FromFile(settings.CertFile!, settings.KeyFilePassword);
+        return LoadPkcsCertificate(settings.CertFile!, settings.KeyFilePassword);
+    }
+
+    private static X509Certificate2 LoadPkcsCertificate(string certFile, string? password)
+    {
+#if NET9_0_OR_GREATER
+        return string.IsNullOrEmpty(password)
+            ? X509CertificateLoader.LoadCertificateFromFile(certFile)
+            : X509CertificateLoader.LoadPkcs12FromFile(certFile, password);
+#else
+#pragma warning disable SYSLIB0057
+        return string.IsNullOrEmpty(password)
+            ? new X509Certificate2(certFile)
+            : new X509Certificate2(certFile, password);
+#pragma warning restore SYSLIB0057
+#endif
     }
 
     private async Task<HttpRequestMessage> CreateRequestAsync(
@@ -617,7 +630,7 @@ public sealed partial class GigaChatClient : IGigaChatClient, IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var line = await reader.ReadLineAsync(cancellationToken);
+            var line = await ReadLineAsync(reader, cancellationToken);
             if (line is null)
                 break;
             if (TryDeserializeChunk(line, out T? chunk))
@@ -640,6 +653,16 @@ public sealed partial class GigaChatClient : IGigaChatClient, IDisposable
 
         chunk = JsonSerializer.Deserialize<T>(data, _jsonOptions);
         return chunk is not null;
+    }
+
+    private static ValueTask<string?> ReadLineAsync(StreamReader reader, CancellationToken cancellationToken)
+    {
+#if NET7_0_OR_GREATER
+        return reader.ReadLineAsync(cancellationToken);
+#else
+        cancellationToken.ThrowIfCancellationRequested();
+        return new ValueTask<string?>(reader.ReadLineAsync());
+#endif
     }
 
     private static string WithQuery(string path, IReadOnlyList<KeyValuePair<string, string?>> parameters)
@@ -866,7 +889,7 @@ public sealed partial class GigaChatClient : IGigaChatClient, IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             
-            var line = await reader.ReadLineAsync(cancellationToken);
+            var line = await ReadLineAsync(reader, cancellationToken);
             if (line is null)
                 break;
             if (string.IsNullOrWhiteSpace(line))

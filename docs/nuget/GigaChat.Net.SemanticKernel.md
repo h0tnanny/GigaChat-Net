@@ -45,7 +45,7 @@ dotnet add package Microsoft.SemanticKernel
 dotnet add package Microsoft.SemanticKernel.Agents.Core
 ```
 
-Пакет зависит от `GigaChat.Net` и рассчитан на .NET 10.0 или новее.
+Пакет зависит от `GigaChat.Net` и поддерживает .NET 6.0, .NET 7.0, .NET 8.0, .NET 9.0 и .NET 10.0.
 
 ## Быстрый старт с DI
 
@@ -270,13 +270,11 @@ GigaChat structured output передается через provider-specific п�
 ```csharp
 using System.ComponentModel;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using GigaChat.Net.Models;
 using GigaChat.Net.SemanticKernel;
 
-var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
-{
-    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-};
+var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 
 var schema = JsonSchemaResponseFormat.FromType<ReleasePlan>(jsonOptions: jsonOptions);
 
@@ -303,18 +301,21 @@ public sealed record ReleasePlan
     /// Short human-readable release summary.
     /// </summary>
     [Description("Short human-readable release summary.")]
+    [JsonPropertyName("summary")]
     public required string Summary { get; init; }
 
     /// <summary>
     /// Overall release risk level.
     /// </summary>
     [Description("Overall release risk level.")]
+    [JsonPropertyName("risk_level")]
     public required string RiskLevel { get; init; }
 
     /// <summary>
     /// Concrete release tasks that should be completed.
     /// </summary>
     [Description("Concrete release tasks that should be completed.")]
+    [JsonPropertyName("tasks")]
     public required IReadOnlyList<string> Tasks { get; init; }
 }
 ```

@@ -20,7 +20,7 @@ https://github.com/h0tnanny/GigaChat-Net/issues
 dotnet add package GigaChat.Net
 ```
 
-Требуется .NET 10.0 или новее.
+Поддерживаются .NET 6.0, .NET 7.0, .NET 8.0, .NET 9.0 и .NET 10.0.
 
 ## Быстрый старт
 

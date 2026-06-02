@@ -2,7 +2,7 @@
 
 .NET SDK для [GigaChat REST API](https://developers.sber.ru/docs/ru/gigachat/api/reference/rest/gigachat-api) — большой языковой модели от Сбера.
 
-Полный порт Python библиотеки [gigachat](https://github.com/ai-forever/gigachat) на C# / .NET 10.
+Полный порт Python библиотеки [gigachat](https://github.com/ai-forever/gigachat) на C# / .NET.
 
 ## Статус проекта
 
@@ -47,7 +47,7 @@ dotnet add package GigaChat.Net.SemanticKernel
 dotnet add package Microsoft.SemanticKernel.Agents.Core
 ```
 
-**Требования:** .NET 10.0+
+**Требования:** .NET 6.0, .NET 7.0, .NET 8.0, .NET 9.0 или .NET 10.0
 
 ## Пакеты и репозиторий
 

@@ -63,7 +63,7 @@ internal static class GigaChatKernelFunctionMapper
 
     public static string ToGigaChatFunctionName(string? pluginName, string functionName)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(functionName);
+        ThrowIfNullOrWhiteSpace(functionName, nameof(functionName));
 
         return string.IsNullOrWhiteSpace(pluginName)
             ? functionName
@@ -295,5 +295,11 @@ internal static class GigaChatKernelFunctionMapper
 
         elementType = enumerable.GetGenericArguments()[0];
         return true;
+    }
+
+    private static void ThrowIfNullOrWhiteSpace(string? value, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new ArgumentException("Value cannot be null or whitespace.", paramName);
     }
 }
