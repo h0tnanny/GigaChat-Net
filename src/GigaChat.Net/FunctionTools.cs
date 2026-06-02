@@ -96,7 +96,7 @@ public static class FunctionTool
         FunctionParameters? parameters = null,
         JsonSerializerOptions? jsonOptions = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        GigaChatGuard.ThrowIfNullOrWhiteSpace(name, nameof(name));
         ArgumentNullException.ThrowIfNull(handler);
 
         var function = new Function
@@ -127,7 +127,7 @@ public sealed class FunctionTool<TArguments> : IChatFunctionTool
         JsonSerializerOptions? jsonOptions = null)
     {
         ArgumentNullException.ThrowIfNull(function);
-        ArgumentException.ThrowIfNullOrWhiteSpace(function.Name);
+        GigaChatGuard.ThrowIfNullOrWhiteSpace(function.Name, nameof(function.Name));
         ArgumentNullException.ThrowIfNull(handler);
 
         Function = function;

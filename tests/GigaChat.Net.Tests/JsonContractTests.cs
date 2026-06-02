@@ -7,7 +7,7 @@ public class JsonContractTests
 {
     private static readonly JsonSerializerOptions Options = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+        PropertyNamingPolicy = GigaChatJsonNamingPolicy.SnakeCaseLower
     };
 
     [Fact]
