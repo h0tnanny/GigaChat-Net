@@ -129,7 +129,7 @@ public class StructuredOutputTests
     {
         var options = new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+            PropertyNamingPolicy = GigaChatJsonNamingPolicy.SnakeCaseLower
         };
 
         var functions = JsonSerializer.Deserialize<OpenApiFunctions>(

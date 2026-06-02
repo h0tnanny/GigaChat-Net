@@ -107,7 +107,7 @@ public static class GigaChatServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sectionName);
+        ThrowIfNullOrWhiteSpace(sectionName, nameof(sectionName));
 
         return services.AddGigaChat(
             options => ApplyConfiguration(configuration.GetSection(sectionName), options),
@@ -128,7 +128,7 @@ public static class GigaChatServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sectionName);
+        ThrowIfNullOrWhiteSpace(sectionName, nameof(sectionName));
         ArgumentNullException.ThrowIfNull(httpClientFactory);
 
         return services.AddGigaChat(
@@ -347,5 +347,11 @@ public static class GigaChatServiceCollectionExtensions
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .Select(value => value!)
             .ToList();
+    }
+
+    private static void ThrowIfNullOrWhiteSpace(string? value, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new ArgumentException("Value cannot be null or whitespace.", paramName);
     }
 }
