@@ -33,6 +33,7 @@ jobs:
             6.0.x
             7.0.x
             8.0.x
+            9.0.x
             10.0.x
 
       - name: Restore
@@ -48,6 +49,10 @@ jobs:
         run: |
           dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.0.0-ci.${{ github.run_number }}.${{ github.run_attempt }}
           dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.0.0-ci.${{ github.run_number }}.${{ github.run_attempt }}
+
+      - name: Validate package frameworks
+        shell: pwsh
+        run: ./scripts/Validate-PackageFrameworks.ps1
 
       - name: Upload test results
         if: always()

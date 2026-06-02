@@ -15,7 +15,7 @@ env:
   GIGACHAT_AUTH_URL: https://auth.example.test/oauth
   NUGET_SOURCE: https://api.nuget.org/v3/index.json
   GITHUB_PACKAGES_SOURCE: https://nuget.pkg.github.com/h0tnanny/index.json
-  PACKAGE_VERSION: 1.0.1-preview.${{ github.run_number }}.${{ github.run_attempt }}
+  PACKAGE_VERSION: 1.0.2-preview.${{ github.run_number }}.${{ github.run_attempt }}
 
 jobs:
   publish-preview:
@@ -35,6 +35,7 @@ jobs:
             6.0.x
             7.0.x
             8.0.x
+            9.0.x
             10.0.x
 
       - name: Validate preview source
@@ -66,6 +67,10 @@ jobs:
         run: |
           dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=$PACKAGE_VERSION
           dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=$PACKAGE_VERSION
+
+      - name: Validate package frameworks
+        shell: pwsh
+        run: ./scripts/Validate-PackageFrameworks.ps1
 
       - name: Publish packages to NuGet
         env:
