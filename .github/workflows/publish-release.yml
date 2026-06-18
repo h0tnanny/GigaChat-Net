@@ -56,7 +56,7 @@ jobs:
           fi
 
           if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "Release tags must be stable SemVer, for example v1.0.0. Preview versions are published from develop." >&2
+            echo "Release tags must be stable SemVer, for example v1.0.0. Preview versions are published from develop or semantic-kernel." >&2
             exit 1
           fi
 
@@ -91,6 +91,15 @@ jobs:
         run: |
           dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=${{ steps.version.outputs.package_version }}
           dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=${{ steps.version.outputs.package_version }}
+          dotnet pack src/GigaChat.Net.SemanticKernel/GigaChat.Net.SemanticKernel.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=${{ steps.version.outputs.package_version }}
+
+      - name: Validate package frameworks
+        shell: pwsh
+        run: ./scripts/Validate-PackageFrameworks.ps1
+
+      - name: Validate package frameworks
+        shell: pwsh
+        run: ./scripts/Validate-PackageFrameworks.ps1
 
       - name: Validate package frameworks
         shell: pwsh

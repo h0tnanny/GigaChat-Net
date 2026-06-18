@@ -105,6 +105,62 @@ builder.Services.AddGigaChat(
     provider => provider.GetRequiredService<IHttpClientFactory>().CreateClient("GigaChat"));
 ```
 
+## Semantic Kernel в ASP.NET Core
+
+Если ASP.NET Core приложение использует Semantic Kernel, зарегистрируйте `Kernel`
+поверх уже настроенного `IGigaChatClient`. Для этого добавьте пакет
+`GigaChat.Net.SemanticKernel`. Если приложение напрямую использует типы
+`Kernel`, `IChatCompletionService` или `ChatHistory`, добавьте явную ссылку на
+`Microsoft.SemanticKernel`, чтобы IDE и build tooling видели эти типы без
+опоры на транзитивные зависимости.
+
+```bash
+dotnet add package GigaChat.Net.SemanticKernel
+dotnet add package Microsoft.SemanticKernel
+```
+
+```csharp
+using GigaChat.Net;
+using GigaChat.Net.AspNetCore;
+using GigaChat.Net.SemanticKernel;
+using Microsoft.Extensions.Options;
+using Microsoft.SemanticKernel.ChatCompletion;
+
+builder.Services.AddGigaChat(builder.Configuration);
+builder.Services.AddGigaChatSemanticKernel(options =>
+{
+    options.ModelIdFactory = provider => provider.GetRequiredService<IOptions<GigaChatOptions>>().Value.Model;
+    options.EndpointFactory = provider => provider.GetRequiredService<IOptions<GigaChatOptions>>().Value.BaseUrl;
+});
+
+app.MapPost("/semantic-kernel/chat", async (
+    ChatRequest request,
+    IChatCompletionService chat,
+    CancellationToken cancellationToken) =>
+{
+    ChatHistory history =
+    [
+        new ChatMessageContent(AuthorRole.System, "Ты ASP.NET Core ассистент."),
+        new ChatMessageContent(AuthorRole.User, request.Message)
+    ];
+
+    var response = await chat.GetChatMessageContentsAsync(
+        history,
+        new GigaChatPromptExecutionSettings
+        {
+            Temperature = 0.2,
+            MaxTokens = 700
+        },
+        cancellationToken: cancellationToken);
+
+    return Results.Ok(response[0].Content);
+});
+```
+
+Расширенный пример с endpoints для chat, streaming, structured output,
+Semantic Kernel plugins/tools и `ChatCompletionAgent` находится в
+`examples/GigaChat.AspNetCore.Example`.
+
 ## Документация
 
 Полная документация и пример приложения находятся в репозитории:

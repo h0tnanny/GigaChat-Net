@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/gigachat-dotnet-announcement.png" alt="GigaChat.Net — библиотека GigaChat для .NET" />
+</p>
+
 # GigaChat.Net
 
 .NET SDK для [GigaChat REST API](https://developers.sber.ru/docs/ru/gigachat/api/reference/rest/gigachat-api) — большой языковой модели от Сбера.
