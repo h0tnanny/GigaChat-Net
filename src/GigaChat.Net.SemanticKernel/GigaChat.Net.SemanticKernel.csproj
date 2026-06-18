@@ -6,35 +6,38 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
-    <!-- NuGet Package Metadata -->
-    <PackageId>GigaChat.Net.AspNetCore</PackageId>
+    <PackageId>GigaChat.Net.SemanticKernel</PackageId>
     <Version>1.1.0</Version>
     <Authors>GigaChat.Net Contributors</Authors>
-    <Description>ASP.NET Core dependency injection and request context extensions for GigaChat.Net.</Description>
-    <PackageTags>gigachat;aspnetcore;dependency-injection;ai;llm;sber;extensions</PackageTags>
+    <Description>Semantic Kernel connector for GigaChat.Net — IChatCompletionService, streaming, function calling, ReAct agent builder, and step tracing.</Description>
+    <PackageTags>gigachat;semantic-kernel;ai;llm;sber;agents;react;chat;completions;tool-calling</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/h0tnanny/GigaChat-Net</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/h0tnanny/GigaChat-Net</PackageProjectUrl>
-    <PackageReleaseNotes>Add explicit package targets for every .NET version from .NET 6 through .NET 10.</PackageReleaseNotes>
+    <PackageReleaseNotes>First stable release. Adds GigaChatReActAgent fluent builder, per-step tracing (GigaChatAgentStep), tool safety guardrails, instruction templates, and multi-turn thread persistence. Supports net6–net10.</PackageReleaseNotes>
 
-    <!-- Symbol and Source Link -->
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
 
-    <!-- Documentation -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.76.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\GigaChat.Net\GigaChat.Net.csproj" />
-    <None Include="..\..\docs\nuget\GigaChat.Net.AspNetCore.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\docs\nuget\GigaChat.Net.SemanticKernel.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
 </Project>

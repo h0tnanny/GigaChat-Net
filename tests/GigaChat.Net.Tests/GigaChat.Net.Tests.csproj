@@ -27,6 +27,7 @@
     <Compile Include="..\..\src\GigaChat.Net\Compatibility\RequiredMemberAttributes.cs" Link="Compatibility\RequiredMemberAttributes.cs" />
     <ProjectReference Include="..\..\src\GigaChat.Net.AspNetCore\GigaChat.Net.AspNetCore.csproj" />
     <ProjectReference Include="..\..\src\GigaChat.Net\GigaChat.Net.csproj" />
+    <ProjectReference Include="..\..\src\GigaChat.Net.SemanticKernel\GigaChat.Net.SemanticKernel.csproj" />
   </ItemGroup>
 
 </Project>

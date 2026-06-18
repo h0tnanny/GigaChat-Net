@@ -13,7 +13,7 @@ body:
     attributes:
       label: Package
       description: Which package is affected?
-      placeholder: GigaChat.Net or GigaChat.Net.AspNetCore
+      placeholder: GigaChat.Net, GigaChat.Net.AspNetCore, or GigaChat.Net.SemanticKernel
     validations:
       required: true
   - type: input
