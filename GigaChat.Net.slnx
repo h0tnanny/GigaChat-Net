@@ -2,10 +2,12 @@
   <Folder Name="/examples/">
     <Project Path="examples/GigaChat.AspNetCore.Example/GigaChat.AspNetCore.Example.csproj" />
     <Project Path="examples/GigaChat.Example/GigaChat.Example.csproj" />
+    <Project Path="examples/GigaChat.SemanticKernel.Example/GigaChat.SemanticKernel.Example.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj" />
     <Project Path="src/GigaChat.Net/GigaChat.Net.csproj" />
+    <Project Path="src/GigaChat.Net.SemanticKernel/GigaChat.Net.SemanticKernel.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/GigaChat.Net.Tests/GigaChat.Net.Tests.csproj" />

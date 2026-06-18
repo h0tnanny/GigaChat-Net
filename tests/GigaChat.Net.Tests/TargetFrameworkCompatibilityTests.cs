@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.Versioning;
 using GigaChat.Net.AspNetCore;
+using GigaChat.Net.SemanticKernel;
 
 namespace GigaChat.Net.Tests;
 
@@ -14,6 +15,7 @@ public class TargetFrameworkCompatibilityTests
         Assert.Equal(expectedFramework, GetTargetFramework(typeof(TargetFrameworkCompatibilityTests).Assembly));
         Assert.Equal(expectedFramework, GetTargetFramework(typeof(Settings).Assembly));
         Assert.Equal(expectedFramework, GetTargetFramework(typeof(GigaChatOptions).Assembly));
+        Assert.Equal(expectedFramework, GetTargetFramework(typeof(GigaChatChatCompletionService).Assembly));
     }
 
     private static string GetExpectedTargetFramework()
