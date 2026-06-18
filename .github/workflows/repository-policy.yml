@@ -42,8 +42,12 @@ jobs:
             exit 1
           fi
 
+          if [[ "$BASE_BRANCH" == "develop" && "$HEAD_BRANCH" == "semantic-kernel" ]]; then
+            branch_pattern="^semantic-kernel$"
+          fi
+
           if [[ "$BASE_BRANCH" == "develop" && ! "$HEAD_BRANCH" =~ $branch_pattern ]]; then
-            echo "Branches targeting develop must match feature/GN-123-short-description, bugfix/GN-123-short-description, and similar prefixes." >&2
+            echo "Branches targeting develop must match semantic-kernel, feature/GN-123-short-description, bugfix/GN-123-short-description, and similar prefixes." >&2
             exit 1
           fi
 

@@ -6,6 +6,7 @@ on:
     branches:
       - master
       - develop
+      - semantic-kernel
   workflow_dispatch:
 
 permissions:
@@ -49,6 +50,15 @@ jobs:
         run: |
           dotnet pack src/GigaChat.Net/GigaChat.Net.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.0.0-ci.${{ github.run_number }}.${{ github.run_attempt }}
           dotnet pack src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.0.0-ci.${{ github.run_number }}.${{ github.run_attempt }}
+          dotnet pack src/GigaChat.Net.SemanticKernel/GigaChat.Net.SemanticKernel.csproj --configuration Release --no-build --output artifacts/packages /p:PackageVersion=0.0.0-ci.${{ github.run_number }}.${{ github.run_attempt }}
+
+      - name: Validate package frameworks
+        shell: pwsh
+        run: ./scripts/Validate-PackageFrameworks.ps1
+
+      - name: Validate package frameworks
+        shell: pwsh
+        run: ./scripts/Validate-PackageFrameworks.ps1
 
       - name: Validate package frameworks
         shell: pwsh
