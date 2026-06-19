@@ -371,6 +371,30 @@ var settings = new GigaChatPromptExecutionSettings
 - Для прямых SDK-возможностей вроде files, assistants, embeddings, token count и
   `ChatParse<T>()` используйте `IGigaChatClient` из базового пакета `GigaChat.Net`.
 
+## Персистентный checkpointer (EF Core)
+
+Пакет `GigaChat.Net.EFCore` добавляет `EFCoreGigaChatAgentThreadStore` — хранилище
+истории `GigaChatReActAgent` в любой БД через EF Core 9. Поддерживает SQLite,
+PostgreSQL, SQL Server и другие провайдеры. Требует **.NET 8.0 или выше**.
+
+```bash
+dotnet add package GigaChat.Net.EFCore
+dotnet add package Microsoft.EntityFrameworkCore.Sqlite  # или другой провайдер
+```
+
+```csharp
+// Регистрация в DI
+services.AddGigaChatEFCoreThreadStore<GigaChatDbContext>(opt =>
+    opt.UseSqlite("Data Source=gigachat-threads.db"));
+```
+
+Также поддерживается паттерн **Human-in-the-Loop**: через `InterruptBefore`
+агент делает паузу перед вызовом указанного плагина, сохраняет состояние в БД
+и возобновляется командой `agent.ResumeAsync(threadId)` — в том числе через
+HTTP 202 Accepted.
+
+Подробности: [docs/agents/checkpointer.md](../agents/checkpointer.md)
+
 ## Пример
 
 Расширенный пример находится в репозитории:
@@ -380,7 +404,8 @@ dotnet run --project examples/GigaChat.SemanticKernel.Example/GigaChat.SemanticK
 ```
 
 Пример показывает chat completion, streaming, structured output, plugins/tools,
-`ChatCompletionAgent` и несколько прямых SDK probes.
+`ChatCompletionAgent`, interrupt/resume с EF Core checkpointer и несколько
+прямых SDK probes.
 
 ## Документация
 
