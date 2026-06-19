@@ -2,8 +2,10 @@ using System.Globalization;
 using System.ComponentModel;
 using System.Text.Json;
 using GigaChat.Net;
+using GigaChat.Net.EFCore;
 using GigaChat.Net.Models;
 using GigaChat.Net.SemanticKernel;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
@@ -54,6 +56,10 @@ await RunSectionAsync(
 await RunSectionAsync(
     "GigaChat ReAct agent (GigaChatReActAgent)",
     async () => await RunReActAgentAsync(client, settings.Model, prompt, cts.Token));
+
+await RunSectionAsync(
+    "GigaChat ReAct agent with EF Core checkpointer and interrupt/resume",
+    async () => await RunInterruptResumeAsync(client, settings.Model, prompt, cts.Token));
 
 await RunSectionAsync(
     "GigaChat SDK probes",
@@ -331,6 +337,95 @@ static async Task RunReActAgentAsync(
 
     var thread = await store.LoadAsync(threadId, cancellationToken);
     Console.WriteLine($"Thread history: {thread!.History.Count} messages, {thread.Steps.Count} total steps");
+}
+
+/// <summary>
+/// Demonstrates the EF Core checkpointer together with the interrupt/resume pattern.
+/// Uses SQLite so the thread survives process restarts.
+///
+/// In an ASP.NET Core app the DI setup would be:
+/// <code>
+///   builder.Services.AddGigaChatEFCoreThreadStore&lt;GigaChatDbContext&gt;(opt =>
+///       opt.UseSqlite("Data Source=gigachat-threads.db"));
+/// </code>
+/// And a 202 Accepted pattern for HTTP endpoints:
+/// <code>
+///   app.MapPost("/agent/invoke", async (AgentRequest req, GigaChatReActAgent agent) =>
+///   {
+///       var result = await agent.InvokeAsync(req.Message, req.ThreadId);
+///       return result.Status == GigaChatRunStatus.Interrupted
+///           ? Results.Accepted($"/agent/resume/{req.ThreadId}", new { result.PendingToolCall })
+///           : Results.Ok(result.Messages[0].Content);
+///   });
+///   app.MapPost("/agent/resume/{threadId}", async (
+///       string threadId, ResumeRequest req, GigaChatReActAgent agent) =>
+///   {
+///       var result = await agent.ResumeAsync(threadId, req.HumanInput);
+///       return Results.Ok(result.Messages[0].Content);
+///   });
+/// </code>
+/// </summary>
+static async Task RunInterruptResumeAsync(
+    IGigaChatClient client,
+    string? modelId,
+    string prompt,
+    CancellationToken cancellationToken)
+{
+    // --- DI setup (mirrors ASP.NET Core host registration) ---
+    var services = new ServiceCollection();
+    services.AddGigaChatEFCoreThreadStore<GigaChatDbContext>(opt =>
+        opt.UseSqlite("Data Source=gigachat-threads-example.db"));
+    var sp = services.BuildServiceProvider();
+
+    var store = sp.GetRequiredService<IGigaChatAgentThreadStore>();
+
+    // Ensure schema exists (in production: call db.Database.MigrateAsync() at startup)
+    await using var db = sp.GetRequiredService<IDbContextFactory<GigaChatDbContext>>()
+        .CreateDbContext();
+    await db.Database.EnsureCreatedAsync(cancellationToken);
+
+    // --- Build agent with interrupt-before "release" plugin ---
+    var agent = GigaChatReActAgent.Create(builder =>
+    {
+        builder.UseClient(client);
+        builder.WithInstructions(GigaChatReActInstructions.DefaultRussian);
+        builder.WithModelId(modelId ?? "GigaChat");
+        builder.WithTemperature(0.1);
+        builder.WithMaxToolCalls(3);
+        builder.WithToolSafety(new GigaChatToolSafetyOptions
+        {
+            ErrorBehavior = GigaChatToolErrorBehavior.ReturnObservation,
+            // Pause before any function in the "release" plugin — human approval required
+            InterruptBefore = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "release" }
+        });
+        builder.UseThreadStore(store);
+        builder.AddPlugin(new ReleasePlugin(modelId ?? "GigaChat"), "release");
+    });
+
+    const string threadId = "efcore-interrupt-resume-demo";
+
+    // Turn 1 — agent will hit interrupt before calling the "release" plugin
+    var result = await agent.InvokeAsync(
+        $"Проверь релизный статус для задачи: {prompt}", threadId, cancellationToken);
+
+    if (result.Status == GigaChatRunStatus.Interrupted)
+    {
+        Console.WriteLine($"[Interrupted] Pending tool: {result.PendingToolCall?.PluginName}.{result.PendingToolCall?.FunctionName}");
+        Console.WriteLine("  -> Human approved. Resuming with auto-execution of the pending tool...");
+
+        // Resume: humanInput=null means the SDK invokes the pending tool automatically
+        var resumed = await agent.ResumeAsync(threadId, humanInput: null, cancellationToken);
+        Console.WriteLine($"[Resumed] {resumed.Messages[^1].Content}");
+        Console.WriteLine($"  Steps after resume: {resumed.Steps.Count}");
+    }
+    else
+    {
+        Console.WriteLine($"[Completed without interrupt] {result.Messages[^1].Content}");
+    }
+
+    // Cleanup demo file
+    if (File.Exists("gigachat-threads-example.db"))
+        File.Delete("gigachat-threads-example.db");
 }
 
 static async Task RunSdkProbesAsync(
