@@ -10,10 +10,12 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.SemanticKernel" Version="1.76.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.76.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\GigaChat.Net.SemanticKernel\GigaChat.Net.SemanticKernel.csproj" />
+    <ProjectReference Include="..\..\src\GigaChat.Net.EFCore\GigaChat.Net.EFCore.csproj" />
   </ItemGroup>
 
 </Project>
