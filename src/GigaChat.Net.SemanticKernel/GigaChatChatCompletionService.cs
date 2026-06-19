@@ -166,25 +166,44 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
         var settings = GigaChatPromptExecutionSettings.FromExecutionSettings(executionSettings);
         var steps = new List<GigaChatAgentStep>();
         var allGenerated = new List<ChatMessageContent>();
-        var finalMessages = await RunToolLoopAsync(chatHistory, settings, kernel, steps, allGenerated, cancellationToken);
+        var loopResult = await RunToolLoopAsync(chatHistory, settings, kernel, steps, allGenerated, cancellationToken);
+
+        if (loopResult.Pending is { } pending)
+        {
+            return new GigaChatAgentRunResult
+            {
+                Status = GigaChatRunStatus.Interrupted,
+                Messages = [],
+                FullRunMessages = allGenerated,
+                Steps = steps,
+                PendingToolCall = pending
+            };
+        }
+
         return new GigaChatAgentRunResult
         {
-            Messages = finalMessages,
+            Messages = loopResult.FinalMessages!,
             FullRunMessages = allGenerated,
             Steps = steps
         };
     }
 
-    private Task<IReadOnlyList<ChatMessageContent>> GetChatMessageContentsWithToolsAsync(
+    private async Task<IReadOnlyList<ChatMessageContent>> GetChatMessageContentsWithToolsAsync(
         ChatHistory chatHistory,
         GigaChatPromptExecutionSettings settings,
         Kernel? kernel,
         CancellationToken cancellationToken)
     {
-        return RunToolLoopAsync(chatHistory, settings, kernel, steps: null, allGenerated: null, cancellationToken);
+        var result = await RunToolLoopAsync(chatHistory, settings, kernel, steps: null, allGenerated: null, cancellationToken);
+        return result.FinalMessages ?? [];
     }
 
-    private async Task<IReadOnlyList<ChatMessageContent>> RunToolLoopAsync(
+    // Carries either normal completion (FinalMessages set) or an interrupted state (Pending set).
+    private readonly record struct ToolLoopResult(
+        IReadOnlyList<ChatMessageContent>? FinalMessages,
+        GigaChatPendingToolCall? Pending);
+
+    private async Task<ToolLoopResult> RunToolLoopAsync(
         ChatHistory chatHistory,
         GigaChatPromptExecutionSettings settings,
         Kernel? kernel,
@@ -228,7 +247,7 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
                     .Select(finalChoice => CreateChatMessageContent(finalChoice, completion, functionCalls, functionMap))
                     .ToArray();
                 allGenerated?.AddRange(finalMessages);
-                return finalMessages;
+                return new ToolLoopResult(finalMessages, null);
             }
 
             messages.Add(message);
@@ -261,6 +280,18 @@ public sealed class GigaChatChatCompletionService : IChatCompletionService
             {
                 throw new GigaChatException(
                     $"Plugin '{kernelFunction.Metadata.PluginName}' is not in the allowed-plugins list.");
+            }
+
+            if (safety?.InterruptBefore is { } interruptBefore
+                && kernelFunction.Metadata.PluginName is { } pluginName
+                && interruptBefore.Contains(pluginName))
+            {
+                return new ToolLoopResult(null, new GigaChatPendingToolCall
+                {
+                    PluginName = pluginName,
+                    FunctionName = kernelFunction.Name,
+                    Arguments = functionCall.Arguments ?? new Dictionary<string, object?>()
+                });
             }
 
             var toolSw = System.Diagnostics.Stopwatch.StartNew();
