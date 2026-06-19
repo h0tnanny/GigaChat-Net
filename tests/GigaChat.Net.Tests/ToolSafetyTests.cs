@@ -191,6 +191,97 @@ public class ToolSafetyTests
         Assert.Contains("allowed-plugins", ex.Message);
     }
 
+    [Fact]
+    public async Task InterruptBefore_PausesRunBeforeToolInvocation()
+    {
+        var handler = new RecordingHandler();
+        handler.QueueJson("""
+        {
+          "choices": [{ "message": { "role": "assistant", "content": "",
+            "function_call": { "name": "stub_do_work", "arguments": { "x": 1 } } },
+            "index": 0, "finish_reason": "function_call" }],
+          "created": 1, "model": "GigaChat",
+          "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 },
+          "object": "chat.completion"
+        }
+        """);
+        using var client = new GigaChatClient(
+            new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
+        var service = new GigaChatChatCompletionService(client);
+        var kernel = Kernel.CreateBuilder().Build();
+        kernel.Plugins.AddFromObject(new ThrowingPlugin(), "stub");
+
+        var result = await service.RunWithStepsAsync(
+            [new ChatMessageContent(AuthorRole.User, "do something")],
+            new GigaChatPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                ToolSafety = new GigaChatToolSafetyOptions
+                {
+                    InterruptBefore = new HashSet<string>(StringComparer.Ordinal) { "stub" }
+                }
+            },
+            kernel);
+
+        // Only one HTTP request — the tool was never invoked.
+        Assert.Single(handler.Requests);
+        Assert.Equal(GigaChatRunStatus.Interrupted, result.Status);
+        Assert.Empty(result.Messages);
+        Assert.NotNull(result.PendingToolCall);
+        Assert.Equal("stub", result.PendingToolCall.PluginName);
+        Assert.Equal("do_work", result.PendingToolCall.FunctionName);
+        // The function-call message appears in FullRunMessages so thread history is complete.
+        Assert.NotEmpty(result.FullRunMessages);
+    }
+
+    [Fact]
+    public async Task InterruptBefore_NonMatchingPlugin_ContinuesNormally()
+    {
+        var handler = new RecordingHandler();
+        handler.QueueJson("""
+        {
+          "choices": [{ "message": { "role": "assistant", "content": "",
+            "function_call": { "name": "stub_do_work", "arguments": {} } },
+            "index": 0, "finish_reason": "function_call" }],
+          "created": 1, "model": "GigaChat",
+          "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 },
+          "object": "chat.completion"
+        }
+        """);
+        handler.QueueJson("""
+        {
+          "choices": [{ "message": { "role": "assistant", "content": "done" },
+            "index": 0, "finish_reason": "stop" }],
+          "created": 2, "model": "GigaChat",
+          "usage": { "prompt_tokens": 2, "completion_tokens": 2, "total_tokens": 4 },
+          "object": "chat.completion"
+        }
+        """);
+        using var client = new GigaChatClient(
+            new Settings { AccessToken = "token", BaseUrl = TestData.BaseUrl }, handler);
+        var service = new GigaChatChatCompletionService(client);
+        var kernel = Kernel.CreateBuilder().Build();
+        kernel.Plugins.AddFromObject(new ThrowingPlugin(), "stub");
+
+        var result = await service.RunWithStepsAsync(
+            [new ChatMessageContent(AuthorRole.User, "do something")],
+            new GigaChatPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                ToolSafety = new GigaChatToolSafetyOptions
+                {
+                    InterruptBefore = new HashSet<string>(StringComparer.Ordinal) { "other_plugin" }
+                }
+            },
+            kernel);
+
+        // Two HTTP calls — tool ran normally.
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Equal(GigaChatRunStatus.Completed, result.Status);
+        Assert.Null(result.PendingToolCall);
+        Assert.Equal("done", Assert.Single(result.Messages).Content);
+    }
+
     private sealed class ThrowingPlugin
     {
         [KernelFunction("throws")]

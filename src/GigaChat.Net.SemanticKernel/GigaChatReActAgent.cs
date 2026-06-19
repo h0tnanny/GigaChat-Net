@@ -80,7 +80,8 @@ public sealed class GigaChatReActAgent
         {
             ThreadId = threadId,
             History = updatedHistory,
-            Steps = updatedSteps
+            Steps = updatedSteps,
+            PendingToolCall = result.PendingToolCall
         }, cancellationToken);
 
         return result;
