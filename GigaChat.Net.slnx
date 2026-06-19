@@ -8,6 +8,7 @@
     <Project Path="src/GigaChat.Net.AspNetCore/GigaChat.Net.AspNetCore.csproj" />
     <Project Path="src/GigaChat.Net/GigaChat.Net.csproj" />
     <Project Path="src/GigaChat.Net.SemanticKernel/GigaChat.Net.SemanticKernel.csproj" />
+    <Project Path="src/GigaChat.Net.EFCore/GigaChat.Net.EFCore.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/GigaChat.Net.Tests/GigaChat.Net.Tests.csproj" />

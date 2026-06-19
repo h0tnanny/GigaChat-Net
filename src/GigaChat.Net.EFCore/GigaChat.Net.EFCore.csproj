@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>12.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- NuGet Package Metadata -->
+    <PackageId>GigaChat.Net.EFCore</PackageId>
+    <Version>1.1.0</Version>
+    <Authors>GigaChat.Net Contributors</Authors>
+    <Description>Entity Framework Core thread store for GigaChat.Net agents — persistent interrupt/resume checkpointing for GigaChatReActAgent.</Description>
+    <PackageTags>gigachat;semantic-kernel;efcore;entity-framework;agents;checkpointer;ai;llm;sber</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <RepositoryUrl>https://github.com/h0tnanny/GigaChat-Net</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/h0tnanny/GigaChat-Net</PackageProjectUrl>
+    <PackageReleaseNotes>Initial release. EF Core-backed IGigaChatAgentThreadStore with optimistic concurrency and interrupt/resume support.</PackageReleaseNotes>
+
+    <!-- Symbol and Source Link -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+
+    <!-- Documentation -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Provider-agnostic EF Core. Users add their own provider (Npgsql, SQLite, SqlServer). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
+    <ProjectReference Include="..\GigaChat.Net.SemanticKernel\GigaChat.Net.SemanticKernel.csproj" />
+  </ItemGroup>
+
+</Project>
