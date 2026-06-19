@@ -13,4 +13,10 @@ public sealed class GigaChatAgentThread
 
     /// <summary>All steps emitted across all runs in this thread.</summary>
     public IReadOnlyList<GigaChatAgentStep> Steps { get; init; } = [];
+
+    /// <summary>
+    /// The pending tool call from the last interrupted run, or <see langword="null"/>
+    /// when the thread is in a normal (non-interrupted) state.
+    /// </summary>
+    public GigaChatPendingToolCall? PendingToolCall { get; init; }
 }
