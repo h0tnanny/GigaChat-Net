@@ -87,6 +87,70 @@ public sealed class GigaChatReActAgent
         return result;
     }
 
+    /// <summary>
+    /// Resumes an interrupted thread. If <paramref name="humanInput"/> is provided it is injected
+    /// as the tool-result observation for the pending tool call — the tool is NOT invoked.
+    /// If <paramref name="humanInput"/> is <see langword="null"/>, the pending tool is executed
+    /// normally via the Kernel and the run continues from the result.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when no thread store is configured, the thread is not found, or the thread is not
+    /// in an interrupted state.
+    /// </exception>
+    public async Task<GigaChatAgentRunResult> ResumeAsync(
+        string threadId,
+        string? humanInput = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(threadId))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(threadId));
+
+        if (_threadStore is null)
+            throw new InvalidOperationException(
+                "Thread store is not configured. Call UseThreadStore() on the builder.");
+
+        var thread = await _threadStore.LoadAsync(threadId, cancellationToken)
+            ?? throw new InvalidOperationException($"Thread '{threadId}' not found.");
+
+        if (thread.PendingToolCall is null)
+            throw new InvalidOperationException(
+                $"Thread '{threadId}' is not in an interrupted state.");
+
+        var history = thread.History.ToList();
+        var pending = thread.PendingToolCall;
+
+        if (humanInput is not null)
+        {
+            // Human override: inject as observation, skip actual tool invocation.
+            history.Add(new ChatMessageContent(AuthorRole.Tool, humanInput));
+        }
+        else
+        {
+            // Normal resume: invoke the pending function directly via the Kernel.
+            var fn = Kernel.Plugins.GetFunction(pending.PluginName, pending.FunctionName);
+            var args = new KernelArguments();
+            foreach (var (k, v) in pending.Arguments)
+                args[k] = v;
+            var fnResult = await fn.InvokeAsync(Kernel, args, cancellationToken);
+            history.Add(new ChatMessageContent(AuthorRole.Tool, fnResult.ToString() ?? string.Empty));
+        }
+
+        var result = await InvokeAsync((IReadOnlyList<ChatMessageContent>)history, cancellationToken);
+
+        var updatedSteps = thread.Steps.Concat(result.Steps).ToList();
+        await _threadStore.SaveAsync(new GigaChatAgentThread
+        {
+            ThreadId = threadId,
+            History = history.Concat(result.FullRunMessages).ToList(),
+            Steps = updatedSteps,
+            PendingToolCall = result.Status == GigaChatRunStatus.Interrupted
+                ? result.PendingToolCall
+                : null
+        }, cancellationToken);
+
+        return result;
+    }
+
     /// <summary>Runs the agent on a pre-built chat history and returns the result with step trace.</summary>
     public Task<GigaChatAgentRunResult> InvokeAsync(
         IReadOnlyList<ChatMessageContent> history,
