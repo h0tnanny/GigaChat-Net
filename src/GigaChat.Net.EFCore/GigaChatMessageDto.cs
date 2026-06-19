@@ -1,3 +1,4 @@
+using System.Text.Json;
 using GigaChat.Net.SemanticKernel;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -42,7 +43,9 @@ public sealed class GigaChatPendingToolCallDto
         {
             PluginName = PluginName,
             FunctionName = FunctionName,
-            Arguments = new Dictionary<string, object?>(Arguments)
+            Arguments = Arguments is not null
+                ? GigaChatAgentStepDto.UnwrapJsonElements(Arguments)
+                : new Dictionary<string, object?>()
         };
 }
 
@@ -111,7 +114,7 @@ public sealed class GigaChatAgentStepDto
             LatencyMs = LatencyMs,
             ToolName = ToolName ?? string.Empty,
             Arguments = Arguments is not null
-                ? new Dictionary<string, object?>(Arguments)
+                ? UnwrapJsonElements(Arguments)
                 : null
         },
         "tool_result" => new GigaChatToolResultStep
@@ -122,5 +125,28 @@ public sealed class GigaChatAgentStepDto
             Result = Result ?? string.Empty
         },
         _ => throw new InvalidOperationException($"Unknown GigaChatAgentStep kind '{Kind}'. Possible data corruption or schema version mismatch.")
+    };
+
+    /// <summary>
+    /// Converts any <see cref="JsonElement"/> values in the dictionary to their CLR equivalents
+    /// so callers receive typed values rather than opaque JsonElement after JSON round-trip.
+    /// </summary>
+    internal static Dictionary<string, object?> UnwrapJsonElements(Dictionary<string, object?> source)
+    {
+        var result = new Dictionary<string, object?>(source.Count, StringComparer.Ordinal);
+        foreach (var (k, v) in source)
+            result[k] = v is JsonElement je ? UnwrapJsonElement(je) : v;
+        return result;
+    }
+
+    private static object? UnwrapJsonElement(JsonElement element) => element.ValueKind switch
+    {
+        JsonValueKind.String => element.GetString(),
+        JsonValueKind.Number when element.TryGetInt64(out var l) => l,
+        JsonValueKind.Number => element.GetDouble(),
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Null => null,
+        _ => element
     };
 }
