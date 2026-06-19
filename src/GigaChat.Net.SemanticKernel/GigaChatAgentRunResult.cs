@@ -17,4 +17,16 @@ public sealed class GigaChatAgentRunResult
 
     /// <summary>Ordered list of steps executed during the run.</summary>
     public IReadOnlyList<GigaChatAgentStep> Steps { get; init; } = [];
+
+    /// <summary>
+    /// Whether the run completed normally or was interrupted before a tool call.
+    /// Defaults to <see cref="GigaChatRunStatus.Completed"/>.
+    /// </summary>
+    public GigaChatRunStatus Status { get; init; } = GigaChatRunStatus.Completed;
+
+    /// <summary>
+    /// The tool call that triggered the interrupt. <see langword="null"/> when
+    /// <see cref="Status"/> is <see cref="GigaChatRunStatus.Completed"/>.
+    /// </summary>
+    public GigaChatPendingToolCall? PendingToolCall { get; init; }
 }

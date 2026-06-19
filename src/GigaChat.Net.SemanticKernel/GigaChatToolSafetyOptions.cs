@@ -22,4 +22,13 @@ public sealed class GigaChatToolSafetyOptions
     /// plugin name is treated as not allowed when this set is non-null.
     /// </summary>
     public IReadOnlySet<string>? AllowedPlugins { get; init; }
+
+    /// <summary>
+    /// Plugin names to interrupt before calling. When the tool loop resolves a function
+    /// whose plugin name appears in this set, the run pauses and returns
+    /// <see cref="GigaChatRunStatus.Interrupted"/> before the function is invoked.
+    /// Resume the run via <c>GigaChatReActAgent.ResumeAsync</c>.
+    /// Null disables interrupt (default behaviour).
+    /// </summary>
+    public IReadOnlySet<string>? InterruptBefore { get; init; }
 }
