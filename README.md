@@ -695,7 +695,7 @@ foreach (var entry in balance.BalanceEntries)
 - Push в `develop` публикует preview версии вида `1.0.2-preview.<run>.<attempt>` в NuGet.org и GitHub Packages и создает tag `preview/v...`.
 - Stable tag `vX.Y.Z` из `master` публикует release версию в NuGet.org и GitHub Packages.
 - Для публикации нужен GitHub Actions secret `NUGET_API_KEY`.
-- GitHub Packages не зеркалирует NuGet.org автоматически; CI отдельно публикует тот же `.nupkg`, чтобы пакет появился во вкладке `Packages`.
+- GitHub Packages не зеркалирует NuGet.org автоматически; workflow публикации отдельно публикует тот же `.nupkg`, чтобы пакет появился во вкладке `Packages`.
 
 Правила веток, коммитов, Project, code review и тестового покрытия: [CONTRIBUTING.md](CONTRIBUTING.md).
 Полная инструкция: [docs/PUBLISHING.md](docs/PUBLISHING.md).
