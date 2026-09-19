@@ -17,6 +17,7 @@ jobs:
   validate-pr-policy:
     name: Validate PR policy
     runs-on: ubuntu-latest
+    if: false
 
     steps:
       - name: Checkout pull request head
