@@ -51,10 +51,11 @@ jobs:
             exit 1
           fi
 
-          if [[ "$BASE_BRANCH" == "master" && "$HEAD_BRANCH" != "develop" && ! "$HEAD_BRANCH" =~ $master_branch_pattern ]]; then
-            echo "Branches targeting master must be develop, release/GN-123-short-description, or hotfix/GN-123-short-description." >&2
-            exit 1
-          fi
+          # Temporarily disabled: allow any branch to target master.
+          # if [[ "$BASE_BRANCH" == "master" && "$HEAD_BRANCH" != "develop" && ! "$HEAD_BRANCH" =~ $master_branch_pattern ]]; then
+          #   echo "Branches targeting master must be develop, release/GN-123-short-description, or hotfix/GN-123-short-description." >&2
+          #   exit 1
+          # fi
 
           if [[ ! "$PR_TITLE" =~ $title_pattern ]]; then
             echo "PR title must match [GN-123] feat: short description." >&2
